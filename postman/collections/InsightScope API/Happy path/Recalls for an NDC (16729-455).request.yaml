@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{baseUrl}}/products/16729-455/recalls?limit=5"
+method: GET
+queryParams:
+  limit: "5"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status code is 200', function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test('product_ndc matches and there are recalls', function () {
+          var body = pm.response.json();
+          pm.expect(body.product_ndc).to.eql('16729-455');
+          pm.expect(body.total).to.be.at.least(5);
+          pm.expect(body.items).to.have.lengthOf(5);
+      });
+    language: text/javascript
+order: 12000

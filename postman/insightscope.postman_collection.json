@@ -251,6 +251,205 @@
               ]
             }
           }
+        },
+        {
+          "name": "List recalls (limit 5)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('items has 5 entries and total is a number', function () {",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body.items).to.have.lengthOf(5);",
+                  "    pm.expect(body.total).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/recalls?limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["recalls"],
+              "query": [
+                { "key": "limit", "value": "5" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Filter recalls by classification (Class I)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('every item is Class I', function () {",
+                  "    var items = pm.response.json().items;",
+                  "    pm.expect(items).to.not.be.empty;",
+                  "    items.forEach(function (item) {",
+                  "        pm.expect(item.classification).to.eql('Class I');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/recalls?classification=Class%20I&limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["recalls"],
+              "query": [
+                { "key": "classification", "value": "Class I" },
+                { "key": "limit", "value": "5" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get recall by number (D-0006-2027)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('has the right recall_number and a product_ndcs list', function () {",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body.recall_number).to.eql('D-0006-2027');",
+                  "    pm.expect(body.product_ndcs).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/recalls/D-0006-2027",
+              "host": ["{{baseUrl}}"],
+              "path": ["recalls", "D-0006-2027"]
+            }
+          }
+        },
+        {
+          "name": "Get recall numbered N/A (slash in the number)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('recall_number is N/A and product_ndcs is a list', function () {",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body.recall_number).to.eql('N/A');",
+                  "    pm.expect(body.product_ndcs).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/recalls/N/A",
+              "host": ["{{baseUrl}}"],
+              "path": ["recalls", "N", "A"]
+            }
+          }
+        },
+        {
+          "name": "Recalls for an NDC (16729-455)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('product_ndc matches and there are recalls', function () {",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body.product_ndc).to.eql('16729-455');",
+                  "    pm.expect(body.total).to.be.at.least(5);",
+                  "    pm.expect(body.items).to.have.lengthOf(5);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/16729-455/recalls?limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "16729-455", "recalls"],
+              "query": [
+                { "key": "limit", "value": "5" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Valid NDC with no recalls returns total 0",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('total is 0 and items is empty', function () {",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body.total).to.eql(0);",
+                  "    pm.expect(body.items).to.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/99999-999/recalls",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "99999-999", "recalls"]
+            }
+          }
         }
       ]
     },
@@ -347,6 +546,93 @@
               "query": [
                 { "key": "limit", "value": "500" }
               ]
+            }
+          }
+        },
+        {
+          "name": "Unknown recall returns 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('detail mentions the recall number', function () {",
+                  "    pm.expect(pm.response.json().detail).to.include('X-9999-9999');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/recalls/X-9999-9999",
+              "host": ["{{baseUrl}}"],
+              "path": ["recalls", "X-9999-9999"]
+            }
+          }
+        },
+        {
+          "name": "Slashes in an unknown recall number still return our 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('it is the API message, not the generic Not Found', function () {",
+                  "    pm.expect(pm.response.json().detail).to.eql('No recall found with recall number A/B/C');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/recalls/A/B/C",
+              "host": ["{{baseUrl}}"],
+              "path": ["recalls", "A", "B", "C"]
+            }
+          }
+        },
+        {
+          "name": "Malformed NDC returns 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "pm.test('error body has a detail list', function () {",
+                  "    pm.expect(pm.response.json().detail).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/abc/recalls",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "abc", "recalls"]
             }
           }
         }

@@ -57,3 +57,37 @@ class LabelerCount(BaseModel):
 class Health(BaseModel):
     status: str
     database: str
+
+
+# --- recalls ---
+# Every field except recall_number is optional: the FDA data has gaps (for example 176 recalls with no state),
+# and a required field here would turn any such row into a 500 error.
+
+class RecallSummary(BaseModel):
+    recall_number: str
+    recalling_firm: str | None = None
+    product_description: str | None = None
+    reason_for_recall: str | None = None
+    classification: str | None = None
+    status: str | None = None
+    voluntary_mandated: str | None = None
+    state: str | None = None
+    country: str | None = None
+    recall_initiation_date: date | None = None
+    report_date: date | None = None
+
+
+class RecallDetail(RecallSummary):
+    distribution_pattern: str | None = None
+    product_ndcs: list[str]   # empty for the many recalls that list no NDC
+
+
+class RecallPage(BaseModel):
+    total: int       # how many recalls match the filters (not just this page)
+    limit: int
+    offset: int
+    items: list[RecallSummary]
+
+
+class ProductRecallPage(RecallPage):
+    product_ndc: str

@@ -2,6 +2,7 @@
 
 Run with:  .\\venv\\Scripts\\python.exe ingest_recalls.py [number_of_records]
 """
+import logging
 import sys
 import time
 
@@ -10,6 +11,8 @@ import requests
 
 from db import get_engine, recall_ndcs, recalls, recalls_metadata
 from ingest import clean_text, to_date  # same cleaning helpers as the products load
+
+log = logging.getLogger("ingest_recalls")
 
 API_URL = "https://api.fda.gov/drug/enforcement.json"
 PAGE_SIZE = 1000          # openFDA's maximum records per request
@@ -69,7 +72,20 @@ def build_recalls(records):
     # Dates arrive as '20240131'. Bad or missing values become null.
     for col in ["recall_initiation_date", "report_date"]:
         df[col] = to_date(df[col])
-    return df.dropna(subset=["recall_number"]).drop_duplicates(subset="recall_number")
+
+    # A recall_number is the primary key, so rows without one cannot be loaded. Say so instead of dropping silently.
+    missing = int(df["recall_number"].isna().sum())
+    if missing:
+        log.warning("Dropping %d record(s) with a missing or blank recall_number", missing)
+    df = df.dropna(subset=["recall_number"])
+
+    # Two recalls sharing a number would collide on the primary key. Keep the first (the newest, since the
+    # download is sorted newest first) and warn, so the data loss is visible.
+    counts = df["recall_number"].value_counts()
+    for number, times in counts[counts > 1].items():
+        log.warning("recall_number %s appears %d times in the fetched data. Keeping the first, dropping %d",
+                    number, times, times - 1)
+    return df.drop_duplicates(subset="recall_number")
 
 
 def build_recall_ndcs(records):
@@ -106,14 +122,12 @@ def load(engine, recalls_df, ndcs_df):
 
 
 def main():
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     total = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_TOTAL
     records = fetch_records(total)
     if not records:
         sys.exit("No records fetched, so the database was left untouched.")
     recalls_df = build_recalls(records)
-    dropped = len(records) - len(recalls_df)
-    if dropped:
-        print(f"Dropped {dropped} fetched record(s) with a missing or repeated recall_number")
     ndcs_df = build_recall_ndcs(records)
     # Drop child rows whose parent was removed during cleaning.
     ndcs_df = ndcs_df[ndcs_df["recall_number"].isin(set(recalls_df["recall_number"]))]

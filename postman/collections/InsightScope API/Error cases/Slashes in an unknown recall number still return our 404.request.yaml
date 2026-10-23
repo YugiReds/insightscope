@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{baseUrl}}/recalls/A/B/C"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status code is 404', function () {
+          pm.response.to.have.status(404);
+      });
+
+      pm.test('it is the API message, not the generic Not Found', function () {
+          pm.expect(pm.response.json().detail).to.eql('No recall found with recall number A/B/C');
+      });
+    language: text/javascript
+order: 5000

@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{baseUrl}}/recalls?limit=5"
+method: GET
+queryParams:
+  limit: "5"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status code is 200', function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test('items has 5 entries and total is a number', function () {
+          var body = pm.response.json();
+          pm.expect(body.items).to.have.lengthOf(5);
+          pm.expect(body.total).to.be.a('number');
+      });
+    language: text/javascript
+order: 8000
