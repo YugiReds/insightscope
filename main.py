@@ -9,6 +9,7 @@ import time
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select, text
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.exc import SQLAlchemyError
 
 from db import active_ingredients, get_engine, packages, products
@@ -28,7 +29,7 @@ engine = get_engine()  # one engine (connection pool) shared by every request
 # product_id is a tiebreaker so the result is the same every time.
 latest = (
     select(products)
-    .distinct(products.c.product_ndc)
+    .ext(distinct_on(products.c.product_ndc))
     .order_by(
         products.c.product_ndc,
         products.c.marketing_start_date.desc().nulls_last(),
