@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{baseUrl}}/products?limit=500"
+method: GET
+queryParams:
+  limit: "500"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status code is 422', function () {
+          pm.response.to.have.status(422);
+      });
+
+      pm.test('error body has a detail list', function () {
+          pm.expect(pm.response.json().detail).to.be.an('array');
+      });
+    language: text/javascript
+order: 3000

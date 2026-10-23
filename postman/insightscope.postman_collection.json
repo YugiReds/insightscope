@@ -1,0 +1,319 @@
+{
+  "info": {
+    "name": "InsightScope API",
+    "description": "Requests and tests for the InsightScope API. Start the API first (uvicorn main:app), then run the collection. The base URL is the collection variable baseUrl.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8000" }
+  ],
+  "item": [
+    {
+      "name": "Happy path",
+      "item": [
+        {
+          "name": "Health check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('status is ok', function () {",
+                  "    pm.expect(pm.response.json().status).to.eql('ok');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "List products (limit 5)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('items has 5 entries', function () {",
+                  "    pm.expect(pm.response.json().items).to.have.lengthOf(5);",
+                  "});",
+                  "",
+                  "pm.test('total is a number', function () {",
+                  "    pm.expect(pm.response.json().total).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                { "key": "limit", "value": "5" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Filter products by dosage form (TABLET)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('every item has dosage_form TABLET', function () {",
+                  "    var items = pm.response.json().items;",
+                  "    pm.expect(items).to.not.be.empty;",
+                  "    items.forEach(function (item) {",
+                  "        pm.expect(item.dosage_form).to.eql('TABLET');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?dosage_form=TABLET&limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                { "key": "dosage_form", "value": "TABLET" },
+                { "key": "limit", "value": "5" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get product by NDC (76961-101)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('has active_ingredients and packages lists', function () {",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body.active_ingredients).to.be.an('array');",
+                  "    pm.expect(body.packages).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/76961-101",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "76961-101"]
+            }
+          }
+        },
+        {
+          "name": "Search by name (ibuprofen)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('response is a list', function () {",
+                  "    pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search?q=ibuprofen",
+              "host": ["{{baseUrl}}"],
+              "path": ["search"],
+              "query": [
+                { "key": "q", "value": "ibuprofen" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Top labelers (limit 5)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('returns 5 rows', function () {",
+                  "    pm.expect(pm.response.json()).to.have.lengthOf(5);",
+                  "});",
+                  "",
+                  "pm.test('rows are sorted by product_count, highest first', function () {",
+                  "    var counts = pm.response.json().map(function (row) { return row.product_count; });",
+                  "    for (var i = 1; i < counts.length; i++) {",
+                  "        pm.expect(counts[i]).to.be.at.most(counts[i - 1]);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stats/labelers?limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["stats", "labelers"],
+              "query": [
+                { "key": "limit", "value": "5" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error cases",
+      "item": [
+        {
+          "name": "Unknown NDC returns 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test('detail mentions the NDC', function () {",
+                  "    pm.expect(pm.response.json().detail).to.include('0000-0000');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/0000-0000",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "0000-0000"]
+            }
+          }
+        },
+        {
+          "name": "Search term too short returns 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "pm.test('error body has a detail list', function () {",
+                  "    pm.expect(pm.response.json().detail).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/search?q=a",
+              "host": ["{{baseUrl}}"],
+              "path": ["search"],
+              "query": [
+                { "key": "q", "value": "a" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Limit above 100 returns 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "pm.test('error body has a detail list', function () {",
+                  "    pm.expect(pm.response.json().detail).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?limit=500",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                { "key": "limit", "value": "500" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

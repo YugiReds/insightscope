@@ -1,0 +1,4 @@
+$kind: collection
+description: Requests and tests for the InsightScope API. Start the API first (uvicorn main:app), then run the collection. The base URL is the collection variable baseUrl.
+variables:
+  baseUrl: http://127.0.0.1:8000

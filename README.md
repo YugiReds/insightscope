@@ -45,6 +45,32 @@ from nested lists in the source data and linked by `product_id`).
 Example: `GET /products/76961-101` returns the product (Rolvedon, labeler Spectrum Pharmaceuticals) with
 `active_ingredients: [{"name": "EFLAPEGRASTIM", "strength": "13.2 mg/.6mL"}]` and a `packages` list.
 
+## Postman collection
+
+`postman/insightscope.postman_collection.json` has one request for each endpoint, grouped into **Happy path**
+(requests that should succeed) and **Error cases** (requests that should be rejected, like an unknown NDC or an
+oversized `limit`). Each request has a test script that checks the status code and one or two fields.
+
+To run it:
+1. Start the API (`.\venv\Scripts\python.exe -m uvicorn main:app --reload`).
+2. In Postman, choose **Import** and select the JSON file.
+3. Open the collection's **Variables** tab and check that `baseUrl` is `http://127.0.0.1:8000`. Change it to test
+   a deployed copy of the API.
+4. Run one request with **Send** and read the **Test Results** tab, or run them all with
+   **Run collection** (the Runner). Every test should show PASS.
+
+**How the test scripts work:** they are short JavaScript snippets that Postman runs after the response arrives.
+- `pm.test('name', function () { ... })` defines one named check. It shows PASS or FAIL in the results.
+- `pm.response.to.have.status(200)` checks the HTTP status code.
+- `pm.response.json()` turns the response body into an object, so the script can look at fields like `status` or
+  `items`.
+- `pm.expect(value).to...` states what the value should be, for example `.to.eql('ok')` (equals),
+  `.to.be.an('array')` (is a list) or `.to.have.lengthOf(5)` (has exactly 5 entries).
+- The "sorted" check loops through the rows and confirms each count is no larger than the one before it.
+
+The tests that check the data (NDC `76961-101`, the `TABLET` filter) assume the sample data from `ingest.py` is
+loaded.
+
 ## A data quirk worth knowing
 
 An NDC is **not unique** in this data. openFDA keeps several label versions per NDC, and each product's
