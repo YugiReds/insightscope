@@ -7,9 +7,9 @@ click==8.5.0
 colorama==0.4.6
 fastapi==0.161.1
 h11==0.16.0
-httpcore==1.0.9
+httpcore2==2.16.0
 httptools==0.9.0
-httpx==0.28.1
+httpx2==2.16.0
 idna==3.20
 iniconfig==2.3.1
 numpy==2.5.4
@@ -30,6 +30,7 @@ requests==2.34.2
 six==1.17.0
 SQLAlchemy==2.1.6
 starlette==1.9.0
+truststore==0.10.5
 typing-inspection==0.4.4
 typing_extensions==4.16.0
 tzdata==2026.5
