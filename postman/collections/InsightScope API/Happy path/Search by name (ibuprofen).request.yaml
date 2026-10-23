@@ -14,4 +14,4 @@ scripts:
           pm.expect(pm.response.json()).to.be.an('array');
       });
     language: text/javascript
-order: 5000
+order: 6000

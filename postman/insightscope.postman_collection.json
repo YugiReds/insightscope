@@ -114,6 +114,43 @@
           }
         },
         {
+          "name": "Filter products by labeler (pfizer)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('every item has pfizer in its labeler_name', function () {",
+                  "    var items = pm.response.json().items;",
+                  "    pm.expect(items).to.not.be.empty;",
+                  "    items.forEach(function (item) {",
+                  "        pm.expect(item.labeler_name.toLowerCase()).to.include('pfizer');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?labeler=pfizer&limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                { "key": "labeler", "value": "pfizer" },
+                { "key": "limit", "value": "5" }
+              ]
+            }
+          }
+        },
+        {
           "name": "Get product by NDC (76961-101)",
           "event": [
             {

@@ -1,0 +1,22 @@
+$kind: http-request
+url: "{{baseUrl}}/products?labeler=pfizer&limit=5"
+method: GET
+queryParams:
+  labeler: pfizer
+  limit: "5"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Status code is 200', function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test('every item has pfizer in its labeler_name', function () {
+          var items = pm.response.json().items;
+          pm.expect(items).to.not.be.empty;
+          items.forEach(function (item) {
+              pm.expect(item.labeler_name.toLowerCase()).to.include('pfizer');
+          });
+      });
+    language: text/javascript
+order: 4000
