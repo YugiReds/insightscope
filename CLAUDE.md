@@ -18,6 +18,8 @@ data service over public drug data. Lean scope on purpose.
 ## Layout
 - `db.py` - database connection (engine) and table definitions.
 - `ingest.py` - step 1 script: fetch from openFDA, clean with pandas, load into Postgres.
+- `main.py` - FastAPI app (step 2): `/health`, `/products`, `/products/{ndc}`, `/stats/labelers`, `/search`. All NDC reads go through the `latest` subquery (one row per NDC, newest `marketing_start_date`).
+- `schemas.py` - Pydantic response models for the API.
 - `checks.sql` / `run_checks.py` - integrity checks (orphans, duplicates) and a runner that prints PASS/WARN/FAIL.
 
 ## Data model
@@ -32,10 +34,11 @@ data service over public drug data. Lean scope on purpose.
 only the row with the latest `marketing_start_date` for each NDC, otherwise it will overcount or return stale labels.
 
 ## Commands
+- Run the API: `.\venv\Scripts\python.exe -m uvicorn main:app --reload`, then open http://127.0.0.1:8000/docs.
 - Load data: `.\venv\Scripts\python.exe ingest.py` (drops and recreates the tables each run, so it is safe to re-run).
 - Check data integrity: `.\venv\Scripts\python.exe run_checks.py` (SQL in `checks.sql`; exits 1 only on FAIL, not WARN).
 
 ## Roadmap
 1. Ingest openFDA NDC data into Postgres (done in step 1).
-2. FastAPI endpoints over the data (not started). Endpoints that count or look up by NDC use the latest
+2. FastAPI endpoints over the data (built, manually tested, no automated tests yet). Endpoints that count or look up by NDC use the latest
    `marketing_start_date` per NDC (see "Data quirk" above).
