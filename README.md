@@ -53,6 +53,20 @@ Counting rows would overcount drugs, so every NDC lookup and count uses only the
 `marketing_start_date` (ties broken by `product_id`). The integrity checks report this as a WARN, not a failure,
 because it is expected behavior in the source data.
 
+## Running in production (not deployed yet)
+
+The setup above is for development: the API runs in a terminal on a laptop and stops when the terminal closes.
+This project is not deployed. In production the same code would run like this:
+
+- **A server that is always on**, with the API started as a managed service (a Docker container, `systemd` or a
+  Windows service) that starts at boot and restarts automatically if it crashes.
+- **uvicorn without `--reload`**, usually with several workers, behind a reverse proxy (such as nginx) that
+  provides HTTPS and a real domain name.
+- **Secrets as environment variables** set on the server (like `DATABASE_URL`), never stored in the code.
+- **A managed PostgreSQL database** on its own server, not on the same machine as the API.
+- **Health checks and logs:** a monitoring system calls `/health` every few seconds and alerts or restarts the
+  service if it stops answering. The request log (status code and milliseconds) is where to start debugging.
+
 ## Troubleshooting scenarios
 
 Realistic questions a user of this API might raise, and how to work through them.
