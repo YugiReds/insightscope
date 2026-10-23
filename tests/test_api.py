@@ -24,11 +24,21 @@ def db():
 
 @pytest.fixture(scope="module")
 def repeated_ndc(db):
-    """An NDC that has several label versions, to test the 'latest version' rule."""
+    """An NDC with several label versions whose newest version is strictly newer than the next one.
+
+    The versions must have different dates. If two versions tie, the test would pass even if the API
+    picked the wrong one (oldest instead of newest), so it would prove nothing.
+    """
     ndc = db.execute(text(
-        "SELECT product_ndc FROM products GROUP BY product_ndc HAVING COUNT(*) > 1 ORDER BY product_ndc LIMIT 1"
+        "WITH ranked AS ("
+        "  SELECT product_ndc, marketing_start_date AS d,"
+        "         ROW_NUMBER() OVER (PARTITION BY product_ndc"
+        "                            ORDER BY marketing_start_date DESC NULLS LAST, product_id) AS rn"
+        "  FROM products) "
+        "SELECT a.product_ndc FROM ranked a JOIN ranked b ON a.product_ndc = b.product_ndc "
+        "WHERE a.rn = 1 AND b.rn = 2 AND a.d > b.d ORDER BY a.product_ndc LIMIT 1"
     )).scalar()
-    assert ndc, "test data has no repeated NDCs"
+    assert ndc, "test data has no NDC whose versions differ in date"
     return ndc
 
 
