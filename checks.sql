@@ -28,3 +28,29 @@ SELECT 'repeated product_ndc (label versions)' AS check_name, 'WARN' AS severity
 FROM (
     SELECT product_ndc FROM products GROUP BY product_ndc HAVING COUNT(*) > 1
 ) d;
+
+-- Checks 5 to 8 cover the recalls tables, which are loaded by ingest_recalls.py.
+
+-- 5. Duplicate recall numbers: any recall_number that appears more than once.
+SELECT 'duplicate recall_number' AS check_name, 'FAIL' AS severity, COUNT(*) AS bad_rows
+FROM (
+    SELECT recall_number FROM recalls GROUP BY recall_number HAVING COUNT(*) > 1
+) d;
+
+-- 6. Recalls with no date: a missing report date or recall initiation date.
+SELECT 'recalls missing a date' AS check_name, 'FAIL' AS severity, COUNT(*) AS bad_rows
+FROM recalls
+WHERE report_date IS NULL OR recall_initiation_date IS NULL;
+
+-- 7. Orphan recall NDCs: recall_ndcs rows whose recall_number has no matching recall.
+SELECT 'orphan recall_ndcs' AS check_name, 'FAIL' AS severity, COUNT(*) AS bad_rows
+FROM recall_ndcs n
+LEFT JOIN recalls r ON r.recall_number = n.recall_number
+WHERE r.recall_number IS NULL;
+
+-- 8. Recall NDCs that match a product: how many distinct recalled NDCs also exist in our products table.
+--    Informational only. The products table is just a sample of the FDA directory, so most recalled
+--    NDCs will not be found there. The number shown is the count of matches.
+SELECT 'distinct recall NDCs matching a product' AS check_name, 'WARN' AS severity, COUNT(DISTINCT n.product_ndc) AS bad_rows
+FROM recall_ndcs n
+JOIN products p ON p.product_ndc = n.product_ndc;

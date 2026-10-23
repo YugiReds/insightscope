@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy import (
     Boolean, Column, Date, ForeignKey, Integer, MetaData, String, Table, Text,
-    create_engine,
+    UniqueConstraint, create_engine,
 )
 
 # Read DATABASE_URL from the .env file into environment variables.
@@ -61,4 +61,37 @@ packages = Table(
     Column("marketing_start_date", Date),
     Column("marketing_end_date", Date),
     Column("sample", Boolean),
+)
+
+# The recall tables get their OWN MetaData (their own table registry). ingest.py drops and recreates
+# everything in `metadata` above, so keeping recalls separate means reloading products never wipes the
+# recalls, and reloading recalls never touches products.
+recalls_metadata = MetaData()
+
+# One row per recall (a recall of one product by one firm).
+recalls = Table(
+    "recalls", recalls_metadata,
+    Column("recall_number", String, primary_key=True),
+    Column("recalling_firm", String),
+    Column("product_description", Text),
+    Column("reason_for_recall", Text),
+    Column("classification", String),       # Class I (most serious), Class II, Class III
+    Column("status", String),               # Ongoing, Completed, Terminated
+    Column("voluntary_mandated", String),
+    Column("distribution_pattern", Text),
+    Column("state", String),
+    Column("country", String),
+    Column("recall_initiation_date", Date),
+    Column("report_date", Date, index=True),
+)
+
+# Many per recall: one recall can list several NDCs (up to 16 in the data), and many recalls list none.
+# There is deliberately no foreign key to products: our products table is only a sample, so most recall
+# NDCs will not exist there.
+recall_ndcs = Table(
+    "recall_ndcs", recalls_metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("recall_number", String, ForeignKey("recalls.recall_number"), index=True, nullable=False),
+    Column("product_ndc", String, index=True, nullable=False),
+    UniqueConstraint("recall_number", "product_ndc"),
 )

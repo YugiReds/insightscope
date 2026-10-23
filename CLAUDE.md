@@ -18,6 +18,7 @@ data service over public drug data. Lean scope on purpose.
 ## Layout
 - `db.py` - database connection (engine) and table definitions.
 - `ingest.py` - step 1 script: fetch from openFDA, clean with pandas, load into Postgres.
+- `ingest_recalls.py` - step 4 script: same pattern for the openFDA drug enforcement (recalls) API. Fetches everything before touching the database, then replaces both recall tables in one transaction.
 - `main.py` - FastAPI app (step 2): `/health`, `/products`, `/products/{ndc}`, `/stats/labelers`, `/search`. All NDC reads go through the `latest` subquery (one row per NDC, newest `marketing_start_date`).
 - `schemas.py` - Pydantic response models for the API.
 - `tests/test_api.py`, `pytest.ini` - API tests. `README.md` - public-facing overview with troubleshooting scenarios.
@@ -27,6 +28,10 @@ data service over public drug data. Lean scope on purpose.
 - `products` - one row per drug product (`product_id` primary key).
 - `active_ingredients` - many per product (flattened from the nested `active_ingredients` list).
 - `packages` - many per product (flattened from the nested `packaging` list).
+- `recalls` - one row per FDA recall (`recall_number` primary key). Loaded by `ingest_recalls.py`.
+- `recall_ndcs` - many per recall (from `openfda.product_ndc`, up to 16; only ~24% of recalls have any). No foreign key to `products`, because `products` is only a sample, so most recall NDCs do not match a product.
+
+The recall tables use their own `recalls_metadata` in `db.py`, separate from `metadata`. `ingest.py` drops and recreates `metadata`, so keeping them separate means reloading products never wipes recalls (and vice versa). Do not merge them. One FDA recall with a blank `recall_number` is dropped on purpose (it cannot be a primary key).
 
 ## Data quirk: repeated NDCs
 `product_ndc` is NOT unique in `products`. openFDA keeps several label versions per NDC, and
@@ -38,6 +43,7 @@ only the row with the latest `marketing_start_date` for each NDC, otherwise it w
 - Run the tests: `.\venv\Scripts\python.exe -m pytest` (14 tests in `tests/test_api.py`, run against the real database).
 - Run the API: `.\venv\Scripts\python.exe -m uvicorn main:app --reload`, then open http://127.0.0.1:8000/docs.
 - Load data: `.\venv\Scripts\python.exe ingest.py` (drops and recreates the tables each run, so it is safe to re-run).
+- Load recalls: `.\venv\Scripts\python.exe ingest_recalls.py [number_of_records]` (default 10,000 newest by `report_date`; safe to re-run).
 - Check data integrity: `.\venv\Scripts\python.exe run_checks.py` (SQL in `checks.sql`; exits 1 only on FAIL, not WARN).
 
 ## Roadmap
