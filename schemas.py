@@ -91,3 +91,75 @@ class RecallPage(BaseModel):
 
 class ProductRecallPage(RecallPage):
     product_ndc: str
+
+
+# --- recall analytics ---
+
+class Coverage(BaseModel):
+    """Which months the data covers fully. The recalls table holds only the newest ~10,000 recalls."""
+    oldest_report_date: date
+    newest_report_date: date
+    first_full_month: str                      # "YYYY-MM": the first month included in the analysis
+    excluded_oldest_month: str | None = None   # set when the oldest month is only partly covered
+    newest_month_may_be_incomplete: bool       # more weekly reports may still arrive for the newest month
+
+
+class MonthlyRecallCount(BaseModel):
+    month: str                                 # "YYYY-MM"
+    total: int
+    by_classification: dict[str, int]
+
+
+class MonthlyRecalls(BaseModel):
+    coverage: Coverage | None = None
+    classifications: list[str]
+    months: list[MonthlyRecallCount]
+
+
+class CategoryCount(BaseModel):
+    category: str
+    recalls: int
+    share: float                               # fraction of all recalls in the range, 0 to 1
+
+
+class OtherReason(BaseModel):
+    reason: str
+    recalls: int
+
+
+class ReasonCategories(BaseModel):
+    start: date | None = None
+    end: date | None = None
+    total: int
+    categories: list[CategoryCount]
+    other_share: float                         # how much landed in "Other": the yardstick for the keyword rules
+    top_other_reasons: list[OtherReason]       # most common reasons no rule matched
+
+
+class ReasonTotal(BaseModel):
+    category: str
+    recalls: int
+
+
+class FirmTotal(BaseModel):
+    recalling_firm: str
+    recalls: int
+
+
+class Spike(BaseModel):
+    month: str
+    recalls: int
+    baseline_mean: float                       # average monthly count over the previous 12 months
+    baseline_stddev: float
+    z_score: float
+    top_reason_categories: list[ReasonTotal]
+    top_recalling_firms: list[FirmTotal]
+
+
+class SpikeReport(BaseModel):
+    method: str
+    threshold: float
+    baseline_months: int
+    months_scored: int                         # months that had a usable 12-month baseline
+    coverage: Coverage | None = None
+    spikes: list[Spike]

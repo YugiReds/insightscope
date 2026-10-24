@@ -49,6 +49,9 @@ product tables, so reloading one dataset never wipes the other.
 | `GET /recalls` | List recalls, newest first. Filters: `classification` (e.g. `Class I`), `status` (e.g. `Ongoing`), `recalling_firm` (contains). Paging: `limit` (1-100), `offset`. |
 | `GET /recalls/{recall_number}` | One recall with the NDCs it covers (an empty list if it names none). 404 if the recall number is unknown. Recall numbers may contain slashes (`N/A`). |
 | `GET /products/{ndc}/recalls` | Recalls that list this NDC, newest first, with paging. Works for any NDC that appears in a recall, even one that is not in `products`. A valid NDC with no recalls returns `total: 0`. A malformed NDC returns 422. |
+| `GET /analytics/recalls/monthly` | Recalls per month (by report date), split by classification. A partly covered oldest month is left out, and the response says which. |
+| `GET /analytics/recalls/reasons` | Recalls per reason category (keyword rules). Optional `start` and `end` dates. Reports the share that landed in "Other" and the most common reasons no rule matched. |
+| `GET /analytics/recalls/spikes` | Months with unusually many recalls (z-score above 2 against the previous 12 months), each with its top 3 reason categories and top 3 recalling firms. |
 
 Example: `GET /products/76961-101` returns the product (Rolvedon, labeler Spectrum Pharmaceuticals) with
 `active_ingredients: [{"name": "EFLAPEGRASTIM", "strength": "13.2 mg/.6mL"}]` and a `packages` list.
@@ -56,6 +59,33 @@ Example: `GET /products/76961-101` returns the product (Rolvedon, labeler Spectr
 Example: `GET /products/16729-455/recalls` returns `total: 26` and the first page of those recalls. The newest come
 first, and ties on the report date are broken by `recall_number`, so paging through all of them returns every
 recall exactly once.
+
+## How the recall analytics work
+
+The logic is in `analytics.py`, and the numbers come from plain SQL you can read top to bottom.
+
+**Which months are used.** Only the newest ~10,000 recalls are loaded, so the oldest month may be cut off partway.
+The FDA publishes weekly reports (every report date in the data is a Wednesday), and any 7 consecutive days contain
+exactly one report. So a complete month must have a report dated in its first 7 days. If the oldest recall is dated
+after the 7th, that month is partial and is left out (in the loaded data, February 2018). The newest month is
+flagged when it may still be in progress but is kept, since an unfinished month is low and cannot cause a false spike.
+
+**Spike detection.** For each month, take the recall counts of the 12 months before it, and work out their average
+and how much they usually vary (the standard deviation). The z-score is how many "usual variations" this month sits
+above that average: `z = (this month - average) / standard deviation`. A z above 2 is a rule of thumb: if monthly
+counts were bell-curve shaped, only about 2% of months would reach it, so it is flagged as unusual. Months with no
+recalls count as 0, a month needs 12 months of history to be scored, and a perfectly flat history cannot be scored.
+In the loaded data every spike is mostly one firm (for example, King Bio Inc. accounts for 465 of the 535 recalls
+in March 2019).
+One limit: a huge spike inflates the variation for the next 12 months, which makes smaller spikes in that period
+harder to flag.
+
+**Reason categories.** Each free-text reason is sorted by keyword into one category: sterility/contamination,
+impurities, potency, labeling, CGMP violations (good manufacturing practice), packaging, failed specifications,
+unapproved drug, or other. The rules are checked in order and the first match wins: specific problems come first,
+the broad CGMP bucket after them, and the catch-alls last. So "CGMP Deviations: carcinogen impurity detected" counts
+as Impurities, and "potential" does not count as potency. The endpoint reports how much landed in "Other" (2.5% when
+written) and lists the most common reasons nothing matched, so you can tell when the rules need updating.
 
 ## Postman collection
 

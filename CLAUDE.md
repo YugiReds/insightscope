@@ -21,7 +21,8 @@ data service over public drug data. Lean scope on purpose.
 - `ingest_recalls.py` - step 4 script: same pattern for the openFDA drug enforcement (recalls) API. Fetches everything before touching the database, then replaces both recall tables in one transaction.
 - `main.py` - FastAPI app (step 2): `/health`, `/products`, `/products/{ndc}`, `/stats/labelers`, `/search`, `/recalls`, `/recalls/{recall_number}`, `/products/{ndc}/recalls`. All NDC reads go through the `latest` subquery (one row per NDC, newest `marketing_start_date`).
 - `schemas.py` - Pydantic response models for the API.
-- `tests/test_api.py`, `tests/test_recalls_api.py`, `pytest.ini` - API tests. `README.md` - public-facing overview with troubleshooting scenarios.
+- `analytics.py` - step 5 recall analytics (monthly counts, reason categories, spike detection). Plain SQL via `text()`, called by the `/analytics/recalls/*` endpoints in `main.py`.
+- `tests/test_api.py`, `tests/test_recalls_api.py`, `tests/test_analytics.py`, `tests/test_ingest_recalls.py`, `pytest.ini` - tests. `README.md` - public-facing overview with troubleshooting scenarios.
 - `checks.sql` / `run_checks.py` - integrity checks (orphans, duplicates) and a runner that prints PASS/WARN/FAIL.
 
 ## Data model
@@ -45,8 +46,14 @@ only the row with the latest `marketing_start_date` for each NDC, otherwise it w
 - The recall detail route is `/recalls/{recall_number:path}` on purpose. One real FDA recall is numbered `N/A`, and a plain `{recall_number}` stops at the slash and returns a generic 404 before reaching our code. Keep the `:path`.
 - `/products/{ndc}/recalls` reads `recall_ndcs`, not `products`, because `products` is only a sample. A valid NDC with no recalls returns total 0, and a malformed NDC returns 422 (a typo must not look like "no recalls").
 
+## Recall analytics rules (analytics.py)
+- The recalls table holds only the newest ~10,000 recalls, so the OLDEST month may be partial. Reports are weekly, so a full month must have a report dated in its first 7 days. If the oldest recall is dated after the 7th, that month is excluded. `tests` fail loudly if report dates stop being on one weekday.
+- Spike = z-score above 2 against the previous 12 months (mean and sample stdev, month itself not included). Months with no recalls count as 0. Fewer than 12 months of history, or a flat history (stdev 0), means not scored. Ties in the top-3 reasons/firms are broken by name.
+- Reason categories come from `REASON_RULES`, checked in order, first match wins (specific problems first, the broad CGMP bucket after them, catch-alls last). Never use the keyword `potent` (it matches "potential"). `Other` was 2.5% when written, and a test fails if it passes 10%.
+- Tests with made-up data use a TEMP table named `recalls` that shadows the real one for one connection and is rolled back, so real data is never touched. Every rule above has a test that was proven to fail when the code was deliberately broken.
+
 ## Commands
-- Run the tests: `.\venv\Scripts\python.exe -m pytest` (45 tests in `tests/`, most run against the real database).
+- Run the tests: `.\venv\Scripts\python.exe -m pytest` (93 tests in `tests/`, most run against the real database).
 - Run the API: `.\venv\Scripts\python.exe -m uvicorn main:app --reload`, then open http://127.0.0.1:8000/docs.
 - Load data: `.\venv\Scripts\python.exe ingest.py` (drops and recreates the tables each run, so it is safe to re-run).
 - Load recalls: `.\venv\Scripts\python.exe ingest_recalls.py [number_of_records]` (default 10,000 newest by `report_date`; safe to re-run).

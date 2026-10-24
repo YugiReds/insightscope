@@ -5,6 +5,7 @@ Then open http://127.0.0.1:8000/docs for the interactive API page.
 """
 import logging
 import time
+from datetime import date
 
 from fastapi import FastAPI, HTTPException, Path, Query, Request
 from fastapi.responses import JSONResponse
@@ -12,10 +13,11 @@ from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.exc import SQLAlchemyError
 
+import analytics
 from db import active_ingredients, get_engine, packages, products, recall_ndcs, recalls
 from schemas import (
-    Health, LabelerCount, ProductDetail, ProductPage, ProductRecallPage, ProductSummary,
-    RecallDetail, RecallPage,
+    Health, LabelerCount, MonthlyRecalls, ProductDetail, ProductPage, ProductRecallPage, ProductSummary,
+    ReasonCategories, RecallDetail, RecallPage, SpikeReport,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -231,3 +233,31 @@ def get_product_recalls(
         ).mappings().all()
     return ProductRecallPage(product_ndc=ndc, total=total, limit=limit, offset=offset,
                              items=[dict(r) for r in rows])
+
+
+# --- recall analytics (the logic lives in analytics.py) ---
+
+@app.get("/analytics/recalls/monthly", response_model=MonthlyRecalls)
+def recalls_monthly():
+    """Recalls per month (by report date), split by classification. A partly covered oldest month is left out."""
+    with engine.connect() as conn:
+        return analytics.monthly_recalls(conn)
+
+
+@app.get("/analytics/recalls/reasons", response_model=ReasonCategories)
+def recalls_by_reason(
+    start: date | None = Query(None, description="Only recalls reported on or after this date (YYYY-MM-DD)"),
+    end: date | None = Query(None, description="Only recalls reported on or before this date (YYYY-MM-DD)"),
+):
+    """Recall counts per reason category, using keyword rules. Reports how much landed in 'Other'."""
+    if start and end and start > end:
+        raise HTTPException(status_code=422, detail="start must not be later than end")
+    with engine.connect() as conn:
+        return analytics.reason_categories(conn, start, end)
+
+
+@app.get("/analytics/recalls/spikes", response_model=SpikeReport)
+def recalls_spikes():
+    """Months with unusually many recalls (z-score above 2 against the previous 12 months), with their top reasons and firms."""
+    with engine.connect() as conn:
+        return analytics.recall_spikes(conn)

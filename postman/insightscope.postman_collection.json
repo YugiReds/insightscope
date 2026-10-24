@@ -450,6 +450,166 @@
               "path": ["products", "99999-999", "recalls"]
             }
           }
+        },
+        {
+          "name": "Monthly recall counts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('months are listed and each month adds up', function () {",
+                  "    var months = pm.response.json().months;",
+                  "    pm.expect(months).to.not.be.empty;",
+                  "    months.forEach(function (m) {",
+                  "        var sum = 0;",
+                  "        Object.keys(m.by_classification).forEach(function (cls) { sum += m.by_classification[cls]; });",
+                  "        pm.expect(sum).to.eql(m.total);",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test('the first month is the first fully covered month', function () {",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body.months[0].month).to.eql(body.coverage.first_full_month);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/recalls/monthly",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "recalls", "monthly"]
+            }
+          }
+        },
+        {
+          "name": "Recall reason categories",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('category counts add up to the total', function () {",
+                  "    var body = pm.response.json();",
+                  "    var sum = 0;",
+                  "    body.categories.forEach(function (c) { sum += c.recalls; });",
+                  "    pm.expect(sum).to.eql(body.total);",
+                  "});",
+                  "",
+                  "pm.test('other_share is a number below 0.10 (the keyword rules still cover most reasons)', function () {",
+                  "    var share = pm.response.json().other_share;",
+                  "    pm.expect(share).to.be.a('number');",
+                  "    pm.expect(share).to.be.below(0.10);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/recalls/reasons",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "recalls", "reasons"]
+            }
+          }
+        },
+        {
+          "name": "Recall reason categories for a date range (2025)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('the date range is echoed back', function () {",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body.start).to.eql('2025-01-01');",
+                  "    pm.expect(body.end).to.eql('2025-12-31');",
+                  "});",
+                  "",
+                  "pm.test('category counts add up to the total', function () {",
+                  "    var body = pm.response.json();",
+                  "    var sum = 0;",
+                  "    body.categories.forEach(function (c) { sum += c.recalls; });",
+                  "    pm.expect(sum).to.eql(body.total);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/recalls/reasons?start=2025-01-01&end=2025-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "recalls", "reasons"],
+              "query": [
+                { "key": "start", "value": "2025-01-01" },
+                { "key": "end", "value": "2025-12-31" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Recall spikes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('threshold is 2 and months were scored', function () {",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body.threshold).to.eql(2);",
+                  "    pm.expect(body.months_scored).to.be.above(0);",
+                  "});",
+                  "",
+                  "pm.test('every spike is above the threshold and lists at most 3 reasons and 3 firms', function () {",
+                  "    var body = pm.response.json();",
+                  "    body.spikes.forEach(function (spike) {",
+                  "        pm.expect(spike.z_score).to.be.above(body.threshold);",
+                  "        pm.expect(spike.top_reason_categories.length).to.be.within(1, 3);",
+                  "        pm.expect(spike.top_recalling_firms.length).to.be.within(1, 3);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/recalls/spikes",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "recalls", "spikes"]
+            }
+          }
         }
       ]
     },
@@ -633,6 +793,71 @@
               "raw": "{{baseUrl}}/products/abc/recalls",
               "host": ["{{baseUrl}}"],
               "path": ["products", "abc", "recalls"]
+            }
+          }
+        },
+        {
+          "name": "Backwards date range returns 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "pm.test('detail explains that start must not be later than end', function () {",
+                  "    pm.expect(pm.response.json().detail).to.eql('start must not be later than end');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/recalls/reasons?start=2025-12-31&end=2025-01-01",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "recalls", "reasons"],
+              "query": [
+                { "key": "start", "value": "2025-12-31" },
+                { "key": "end", "value": "2025-01-01" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Invalid date returns 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "pm.test('error body has a detail list', function () {",
+                  "    pm.expect(pm.response.json().detail).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/recalls/reasons?start=not-a-date",
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "recalls", "reasons"],
+              "query": [
+                { "key": "start", "value": "not-a-date" }
+              ]
             }
           }
         }

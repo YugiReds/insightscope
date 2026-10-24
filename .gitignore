@@ -5,3 +5,5 @@ __pycache__/
 .vscode/
 .postman/
 .postman/
+postman/collections/
+postman/globals/
