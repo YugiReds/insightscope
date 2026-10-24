@@ -21,6 +21,7 @@ data service over public drug data. Lean scope on purpose.
 - `ingest_recalls.py` - step 4 script: same pattern for the openFDA drug enforcement (recalls) API. Fetches everything before touching the database, then replaces both recall tables in one transaction.
 - `main.py` - FastAPI app (step 2): `/health`, `/products`, `/products/{ndc}`, `/stats/labelers`, `/search`, `/recalls`, `/recalls/{recall_number}`, `/products/{ndc}/recalls`. All NDC reads go through the `latest` subquery (one row per NDC, newest `marketing_start_date`).
 - `schemas.py` - Pydantic response models for the API.
+- `frontend/` - step 7 dashboard: React + Vite + Tailwind + Recharts, tests with Vitest. `npm run build` writes `frontend/dist`, which `main.py` serves at `/` via `mount_dashboard()`. See "Dashboard rules" below.
 - `insights.py` - step 6 AI summaries of the recall spikes (Hugging Face, with guardrail, template fallback and a Postgres cache table `insight_cache`). Called by `/insights/recalls/spikes`.
 - `analytics.py` - step 5 recall analytics (monthly counts, reason categories, spike detection). Plain SQL via `text()`, called by the `/analytics/recalls/*` endpoints in `main.py`.
 - `tests/test_api.py`, `tests/test_recalls_api.py`, `tests/test_analytics.py`, `tests/test_insights.py`, `tests/test_ingest_recalls.py`, `pytest.ini` - tests. `README.md` - public-facing overview with troubleshooting scenarios.
@@ -63,8 +64,21 @@ only the row with the latest `marketing_start_date` for each NDC, otherwise it w
 - KNOWN LIMIT: the guardrail checks numbers, not claims. A model can link two separate facts (e.g. a firm and a reason) into a statement the facts never make. Fixing that means tightening the prompt and bumping `PROMPT_VERSION`, not loosening the guardrail. `PROMPT_VERSION` is 3. Version 1 linked a firm to a reason and said "products". Version 2 still put reasons and a firm in one sentence, wrote "the FDA reported" (10 of 24 samples) and sometimes computed its own figures. Version 3 forbids all of that (24 of 24 real samples were clean). The guardrail still cannot catch true-but-derived statements (e.g. "the majority of the recalls"), repetition, summaries over 3 sentences or missing the usual monthly level (the March 2019 summary does both), or "significant spike" being read as statistical.
 - Changing the prompt: bump `PROMPT_VERSION`, run `.\venv\Scripts\python.exe insights.py`, and read every summary against its facts. Old cache rows stay in `insight_cache` but are never used again.
 
+## Dashboard rules (frontend/)
+- Ask before installing any npm or Python package. Direct dependencies are pinned to exact versions (no `^`) chosen as the newest stable release at least 14 days old, and `frontend/.npmrc` sets `ignore-scripts=true` so no package runs code at install time. Charting library: Recharts (SVG, so charts are real DOM that screen readers and tests can reach).
+- `node_modules/` and `dist/` are in `.gitignore` on purpose (rebuilt from committed files). COMMIT `package.json`, `package-lock.json` and `.npmrc`. Deploying means running `npm install` and `npm run build`.
+- `main.py` mounts the dashboard at `/` LAST (a mount at `/` matches every path, so anything registered after it would never be reached). Keep `mount_dashboard(app, DASHBOARD_DIR)` at the very end of `main.py`. It only mounts if `frontend/dist` exists when the server starts. Do not `import pathlib.Path` by that name in `main.py`: `Path` there is FastAPI's.
+- Dev: Vite (5173) proxies API paths to FastAPI (8000), so no CORS. A NEW API path with a new first segment must be added to `API_PATHS` in `frontend/vite.config.js`. The dashboard calls relative URLs (`/health`), which work in both dev and production.
+- Every section needs a loading state AND a clear plain-language error (`Section` in `components/States.jsx`). The header status separates three states: OK, API up but database down (503), API unreachable (no answer). Keep it that way: it is the support-engineer feature.
+- Colours are tokens in `src/index.css` for light and dark, validated with the dataviz validator (class ramp) and a WCAG AA contrast check for text. Do not add raw hex colours in components. Meaning is never carried by colour alone: icons, labels, diamond shapes for spikes, and a text summary plus table view for every chart.
+- Frontend tests (`npm test`, 38 tests) never call a real server: `fetch` is faked in `src/__tests__/helpers.js`. Each guard (AI/Template badge, the NDC outcomes, the API-down vs database-down status) was proven to fail when deliberately broken.
+- Recharts needs `ResizeObserver`, which jsdom lacks: it is stubbed in `src/setupTests.js`.
+
 ## Commands
-- Run the tests: `.\venv\Scripts\python.exe -m pytest` (143 tests in `tests/`, most run against the real database).
+- Dashboard dev: API in one terminal (`.\venv\Scripts\python.exe -m uvicorn main:app --reload`), then `cd frontend; npm install; npm run dev` and open http://localhost:5173.
+- Dashboard production (one server): `cd frontend; npm run build`, then start uvicorn and open http://127.0.0.1:8000/. Build BEFORE starting uvicorn, or restart it after the first build.
+- Dashboard tests: `cd frontend; npm test`.
+- Run the tests: `.\venv\Scripts\python.exe -m pytest` (153 tests in `tests/`, most run against the real database; 4 of them need `frontend/dist` and are skipped until `npm run build` has run).
 - Run the API: `.\venv\Scripts\python.exe -m uvicorn main:app --reload`, then open http://127.0.0.1:8000/docs.
 - Load data: `.\venv\Scripts\python.exe ingest.py` (drops and recreates the tables each run, so it is safe to re-run).
 - Load recalls: `.\venv\Scripts\python.exe ingest_recalls.py [number_of_records]` (default 10,000 newest by `report_date`; safe to re-run).

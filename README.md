@@ -3,9 +3,9 @@
 A small data service over the FDA's public drug directory (the openFDA NDC API). A script pulls ~5,000 drug
 records, cleans them with pandas, and loads them into PostgreSQL. A second script does the same for the ~10,000
 most recent FDA drug recalls (the openFDA enforcement API). A FastAPI service then lets clients look the data
-up over HTTP.
+up over HTTP, and a React dashboard shows it all on one page.
 
-**Stack:** Python, pandas, SQLAlchemy, PostgreSQL, FastAPI, pytest.
+**Stack:** Python, pandas, SQLAlchemy, PostgreSQL, FastAPI, pytest. Dashboard: React, Vite, Tailwind CSS, Recharts, Vitest.
 
 ## How it fits together
 
@@ -21,6 +21,7 @@ openFDA API  ->  ingest.py (fetch, clean, flatten)  ->  PostgreSQL  <-  main.py 
 | `main.py` / `schemas.py` | The API endpoints and their response shapes. |
 | `checks.sql` / `run_checks.py` | Data integrity checks: orphan rows, duplicate IDs, missing dates. Prints PASS, WARN or FAIL. |
 | `tests/` | Automated tests for the API and for the recall cleaning step. |
+| `frontend/` | The React dashboard (Vite, Tailwind, Recharts). `npm run build` writes `frontend/dist`, which `main.py` serves at `/`. Has its own tests (Vitest). |
 
 **Tables:** `products` (one row per product), `active_ingredients` and `packages` (many per product, flattened
 from nested lists in the source data and linked by `product_id`). `recalls` (one row per recall) and
@@ -132,6 +133,92 @@ majority of the recalls", which is correct, 198 of 236, but is not written in th
 wording, summaries that run past the requested 2 or 3 sentences or leave out the usual monthly level (one saved
 summary, March 2019, does both), and "significant spike", which can be mistaken for a statistical claim. Treat the AI summaries as drafts.
 
+## Dashboard
+
+A single page that shows everything the API knows, built with React (Vite), Tailwind CSS and Recharts.
+
+<!-- Add a screenshot at screenshots/dashboard.png, then remove this comment markup to show it:
+![InsightScope dashboard](screenshots/dashboard.png)
+-->
+*Screenshot: save one as `screenshots/dashboard.png` and uncomment the image line above.*
+
+**What it shows:**
+- A header with a live status light from `/health`. It tells three situations apart: everything fine, the API is up
+  but its database is not, and the API cannot be reached at all (checked every 15 seconds).
+- Four summary tiles: total recalls, the share that are Class I, the number of spike months, and the date range covered.
+- Recalls per month as stacked columns split by classification, with a diamond on every spike month.
+- A card for each spike with its count against the usual level, the top firm and its share, the summary, and a badge
+  saying **AI** or **Template**. Hover (or focus) a Template badge to see why the AI was not used.
+- Reason categories with a date range picker (presets, or two date boxes).
+- "Has this drug been recalled?": an NDC lookup with four clearly different outcomes: recalls found, none found, a
+  malformed NDC (the API's 422, shown with the right format), and an API or database error.
+
+**When something is down.** Every section has its own loading state and its own plain-language error with a Try
+again button. If the API is down, a banner says so, and the sections reload by themselves when it comes back.
+The page never goes blank.
+
+**Accessibility.** Every input has a label. Every chart has a sentence that describes it and a table view with the same
+numbers. Spike months are marked by a diamond shape, not by colour alone. Class colours are one blue ramp checked with
+the dataviz palette validator, and every text colour pair reaches WCAG AA in light and dark mode (the page follows
+your system setting).
+
+### Run it while developing (two terminals)
+
+```
+# Terminal 1: the API
+.\venv\Scripts\python.exe -m uvicorn main:app --reload
+
+# Terminal 2: the dashboard (the first time, run npm install first)
+cd frontend
+npm install
+npm run dev
+```
+
+Open **http://localhost:5173**. Vite forwards the API paths (`/health`, `/products`, `/recalls`, `/analytics`,
+`/insights`, `/search`, `/stats`, `/docs`) to the API on port 8000, so the browser only talks to one address and no
+CORS settings are needed. If you add an API path with a new first segment, add it to `API_PATHS` in
+`frontend/vite.config.js`.
+
+### Run it as one server (production)
+
+```
+cd frontend
+npm install
+npm run build
+cd ..
+.\venv\Scripts\python.exe -m uvicorn main:app
+```
+
+Open **http://127.0.0.1:8000/**. FastAPI serves the built files at `/`, and `/docs` and every API endpoint still work.
+Build **before** starting uvicorn, or restart uvicorn after the first build: the dashboard is only mounted if
+`frontend/dist` exists when the server starts. Rebuilding while the server runs is fine.
+
+### Tests
+
+```
+cd frontend
+npm test                  # 38 dashboard tests (Vitest), with the API faked
+cd ..
+.\venv\Scripts\python.exe -m pytest    # includes tests/test_dashboard.py, which checks FastAPI serves the built page
+```
+
+The dashboard tests cover the error states, the AI and Template badge, the four NDC outcomes, the date range picker and
+the chart's text and table alternatives. They never call a real server. The Python tests that need the real build are
+skipped until `npm run build` has been run.
+
+### Why `node_modules` and `dist` are not in git
+
+Both are rebuilt from files that **are** committed, so storing them would only add size and noise. `node_modules/` is
+about 140 MB and is recreated exactly by `npm install` from `package.json` and `package-lock.json` (commit those two,
+and `.npmrc`, which turns off install scripts). `dist/` is the build output of `npm run build`: committing it would put
+generated, minified code in every diff and let it go stale. The trade-off is that whoever deploys must run the build.
+
+### Known limits
+
+The built JavaScript is about 630 kB (185 kB compressed), mostly the charting library. It is not split into lazy-loaded
+pieces. The spike summaries can take a few seconds to appear the first time, because an AI writes them; later visits
+use the saved ones. There is no login: anyone who can reach the server can see the dashboard.
+
 ## Postman collection
 
 `postman/insightscope.postman_collection.json` has one request for each endpoint, grouped into **Happy path**
@@ -177,6 +264,8 @@ This project is not deployed. In production the same code would run like this:
   provides HTTPS and a real domain name.
 - **Secrets as environment variables** set on the server (like `DATABASE_URL`), never stored in the code.
 - **A managed PostgreSQL database** on its own server, not on the same machine as the API.
+- **The dashboard** is served by the same FastAPI process, so `npm run build` must be part of the deploy (the build
+  output is not stored in git).
 - **Health checks and logs:** a monitoring system calls `/health` every few seconds and alerts or restarts the
   service if it stops answering. The request log (status code and milliseconds) is where to start debugging.
 
@@ -235,6 +324,18 @@ inference. "HTTP 401" means the token was rejected, and "HTTP 403" means it lack
 permission. "timed out" or "could not reach Hugging Face" points at the network or the service. "the AI summary was
 rejected: it contains numbers that are not in the facts" means the model made something up and the guardrail
 worked as intended. Only the first failure in a request is tried: the other spikes then say they were skipped.
+
+**"The dashboard says the API is unreachable, or the status light is red."**
+Read the wording, because the three states mean different things. "API unreachable" means the browser got no answer at
+all: the server is stopped, or (in development) only the dashboard is running and the API on port 8000 is not. "API is
+up, database unavailable" means the API answered with a 503: PostgreSQL is down or `DATABASE_URL` is wrong. A section
+showing "The API returned an error (HTTP 422)" means the request itself was rejected, and the message says why.
+The sections reload by themselves once `/health` is green again.
+
+**"Opening `http://127.0.0.1:8000/` shows `{"detail":"Not Found"}` instead of the dashboard."**
+The dashboard has not been built, or the server was started before it was. Run `npm run build` inside `frontend/`, then
+restart uvicorn (the dashboard is only mounted if `frontend/dist` exists when the server starts). `/docs` still works
+either way, which is a quick way to tell a missing build apart from a stopped server.
 
 ## Bug story: the recall that could not be opened
 

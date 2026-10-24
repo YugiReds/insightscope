@@ -108,11 +108,27 @@ offset: int = Query(0, ge=0),
 
 The recall, analytics and insights endpoints follow the same patterns shown above. Open `main.py` and search for `@app.get` to jump between them.
 
+## The dashboard mount (the very end of the file)
+
+```python
+import pathlib  # a module import, because "Path" below is FastAPI's Path
+
+DASHBOARD_DIR = pathlib.Path(__file__).parent / "frontend" / "dist"
+
+def mount_dashboard(application, directory):
+    application.mount("/", StaticFiles(directory=directory, html=True), name="dashboard")
+```
+
+- Serves the built React files (`npm run build`) at `/`. `html=True` sends `index.html` for `/`.
+- It only mounts if `frontend/dist/` exists, so the API still starts on a fresh clone.
+- **It must stay last.** A mount at `/` matches every path, and FastAPI checks routes in order, so any route added after it would never be reached. A test in `tests/test_dashboard.py` proves this.
+- **Why `import pathlib`:** `from pathlib import Path` would replace FastAPI's `Path` (used for route parameters) and break every test. This actually happened in step 7.
+
 ## Status codes at a glance
 
 | Code | Comes from |
 | --- | --- |
 | 200 | The function returned normally |
-| 404 | `raise HTTPException(status_code=404, ...)` in your code, or no route matched at all (FastAPI's generic "Not Found") |
+| 404 | `raise HTTPException(status_code=404, ...)` in your code, or no route matched at all (FastAPI's generic "Not Found"; still JSON, even with the dashboard mounted) |
 | 422 | `Query(...)` rules, or an explicit check like start-after-end |
 | 503 | The `SQLAlchemyError` exception handler |

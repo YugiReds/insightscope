@@ -4,11 +4,13 @@ Run with:  .\\venv\\Scripts\\python.exe -m uvicorn main:app --reload
 Then open http://127.0.0.1:8000/docs for the interactive API page.
 """
 import logging
+import pathlib  # a module import, because "Path" below is FastAPI's Path (for route parameters)
 import time
 from datetime import date
 
 from fastapi import FastAPI, HTTPException, Path, Query, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.exc import SQLAlchemyError
@@ -272,3 +274,20 @@ def recall_spike_insights():
     facts only, and falls back to a template if the AI is unavailable or says anything not in the facts."""
     with engine.begin() as conn:  # begin() commits when done, because good AI summaries are saved to the cache table
         return insights.spike_insights(conn, insights.get_client())
+
+
+# --- the dashboard (React app in frontend/, built into frontend/dist by `npm run build`) ---
+# KEEP THIS AT THE VERY END OF THE FILE. A mount at "/" matches every path, and FastAPI checks routes in the order they
+# were added, so anything registered after it would never be reached. Every API endpoint above, plus /docs and
+# /openapi.json (which FastAPI adds when the app is created), come first and keep working.
+
+DASHBOARD_DIR = pathlib.Path(__file__).parent / "frontend" / "dist"
+
+
+def mount_dashboard(application, directory):
+    """Serve the built dashboard at / (index.html for the root, and the files in assets/)."""
+    application.mount("/", StaticFiles(directory=directory, html=True), name="dashboard")
+
+
+if DASHBOARD_DIR.is_dir():  # not built yet (for example in a fresh clone): the API still works without it
+    mount_dashboard(app, DASHBOARD_DIR)

@@ -8,3 +8,9 @@ __pycache__/
 postman/collections/
 postman/globals/
 documentation/documentation/
+
+# Dashboard (frontend/). Both folders are rebuilt from files that ARE committed, so they stay out of git:
+#   node_modules/ is rebuilt by `npm install` from package.json + package-lock.json (both committed).
+#   dist/ is the build output, rebuilt by `npm run build` from the source in frontend/src.
+frontend/node_modules/
+frontend/dist/

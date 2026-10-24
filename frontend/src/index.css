@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+/* Every colour in the dashboard is a token defined here, once for light mode and once for dark mode.
+   The chart colours were checked with the dataviz palette validator, and every text/background pair below
+   reaches WCAG AA (4.5:1). The dark values are chosen for the dark surface, not an automatic inversion. */
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --card: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --line: #e1e0d9;
+  --axis: #c3c2b7;
+  --accent: #256abf;
+  --accent-ink: #184f95;
+  --on-accent: #ffffff;
+  --info-bg: #e6f0fb;
+  --info-line: #86b6ef;
+  --warn-bg: #fff1cc;
+  --warn-line: #eda100;
+  --warn-ink: #4a2f00;
+  --err-bg: #fdeaea;
+  --err-line: #d03b3b;
+  --err-ink: #6e1010;
+  --ai-bg: #cde2fb;
+  --ai-ink: #0d366b;
+  --tpl-bg: #e9e8e2;
+  --tpl-ink: #0b0b0b;
+  /* Recall classes are ORDERED by severity, so they use one blue ramp: darker means more serious. */
+  --class-1: #104281;
+  --class-2: #2a78d6;
+  --class-3: #86b6ef;
+  --class-other: #898781;
+  --series-1: #2a78d6;
+  --good: #0ca30c;
+  --warning: #fab219;
+  --critical: #d03b3b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --card: #1a1a19;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --line: #2c2c2a;
+    --axis: #383835;
+    --accent: #5598e7;
+    --accent-ink: #86b6ef;
+    --on-accent: #0b0b0b;
+    --info-bg: #14263b;
+    --info-line: #3b6fa8;
+    --warn-bg: #3b2c0a;
+    --warn-line: #c98500;
+    --warn-ink: #fbe3a8;
+    --err-bg: #3c1414;
+    --err-line: #e66767;
+    --err-ink: #f6c4c4;
+    --ai-bg: #184f95;
+    --ai-ink: #cde2fb;
+    --tpl-bg: #383835;
+    --tpl-ink: #f0efec;
+    --class-1: #9ec5f4;
+    --class-2: #5598e7;
+    --class-3: #256abf;
+    --series-1: #3987e5;
+  }
+}
+
+/* Lets Tailwind classes such as bg-card, text-ink and border-line use the tokens above. */
+@theme inline {
+  --color-page: var(--page);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-on-accent: var(--on-accent);
+  --color-info-bg: var(--info-bg);
+  --color-info-line: var(--info-line);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-line: var(--warn-line);
+  --color-warn-ink: var(--warn-ink);
+  --color-err-bg: var(--err-bg);
+  --color-err-line: var(--err-line);
+  --color-err-ink: var(--err-ink);
+  --color-ai-bg: var(--ai-bg);
+  --color-ai-ink: var(--ai-ink);
+  --color-tpl-bg: var(--tpl-bg);
+  --color-tpl-ink: var(--tpl-ink);
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* A visible keyboard focus ring everywhere. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Loading placeholders pulse, but only for people who have not asked for reduced motion. */
+.skeleton {
+  background: var(--line);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton {
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
+}

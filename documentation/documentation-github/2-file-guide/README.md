@@ -12,7 +12,7 @@ PostgreSQL database  ◄── db.py (connection + table definitions, reads .env
    ▲
    │  main.py (endpoints)  +  analytics.py (math)  +  insights.py (AI summaries)  +  schemas.py (response shapes)
    │
-Clients: your browser (/docs), Postman, the tests
+Clients: the dashboard (frontend/, served by main.py at /), your browser (/docs), Postman, the tests
 ```
 
 ## The files
@@ -35,7 +35,9 @@ Clients: your browser (/docs), Postman, the tests
 | `checks.sql` / `run_checks.py` | Data quality checks | [checks.md](checks.md) |
 | `tests/` | Automated tests | [tests.md](tests.md) |
 | `postman/insightscope.postman_collection.json` | The Postman collection | [postman.md](postman.md) |
+| `frontend/` | The React dashboard | [frontend.md](frontend.md) |
+| `frontend/.npmrc`, `package.json` | npm packages and install settings | [frontend.md](frontend.md) |
 
 ## If you were rebuilding the API from scratch
 
-The minimum set is `.env` → `db.py` → `schemas.py` → `main.py`, plus `requirements.txt`. The loaders fill the database; `analytics.py` adds the analytics endpoints; `insights.py` adds the AI summaries; everything else checks or tests.
+The minimum set is `.env` → `db.py` → `schemas.py` → `main.py`, plus `requirements.txt`. The loaders fill the database; `analytics.py` adds the analytics endpoints; `insights.py` adds the AI summaries; `frontend/` adds the dashboard; everything else checks or tests.

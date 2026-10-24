@@ -48,6 +48,9 @@ __pycache__/
 .postman/
 postman/collections/
 postman/globals/
+documentation/documentation/
+frontend/node_modules/
+frontend/dist/
 ```
 
 | Entry | Why it's ignored |
@@ -58,6 +61,9 @@ postman/globals/
 | `.vscode/` | Your personal VS Code settings |
 | `.postman/` | Postman's local workspace files |
 | `postman/collections/`, `postman/globals/` | Postman's own YAML copies, which drift out of sync; the JSON collection is the source of truth |
+| `documentation/documentation/` | Your PDF copy of the docs (the Markdown copy in `documentation-github/` is committed) |
+| `frontend/node_modules/` | 139 MB of npm packages, rebuilt exactly by `npm install` from `package-lock.json` |
+| `frontend/dist/` | Build output from `npm run build`; committing it would add minified code to every diff and go stale |
 
 ## `requirements.txt`: the package list
 
@@ -75,6 +81,10 @@ pip freeze | Set-Content -Encoding ascii requirements.txt
 
 Avoid `pip freeze > requirements.txt` in Windows PowerShell: `>` can save the file as UTF-16, which Git can't read as text.
 
+## `frontend/package.json`, `package-lock.json`, `.npmrc`
+
+The dashboard's version of `requirements.txt`. `package.json` lists the npm packages (pinned exactly), `package-lock.json` records every sub-package, and `.npmrc` turns off install scripts. All three are committed. Details in [frontend.md](frontend.md).
+
 ## `pytest.ini`: test settings
 
 A small settings file that tells pytest where the tests are. You rarely need to touch it.
@@ -91,6 +101,7 @@ Key rules in it:
 - The duplicate-NDC rule: use the newest label version per NDC.
 - API rules: a unique tiebreaker in every sort, nullable fields, recalls-by-NDC behavior.
 - Keep recalls in their own table list so `ingest.py` can't wipe them.
+- Keep the dashboard mount last in `main.py`, and use `import pathlib`, not `from pathlib import Path`.
 
 **Why it matters:** without it, each Claude Code session would start with no memory of the project's decisions.
 

@@ -9,6 +9,7 @@ The full guide is in [troubleshooting-guide.md](troubleshooting-guide.md), group
 5. API responses (what a user might report)
 6. AI summaries (Hugging Face)
 7. Tests and Postman
-8. Git and GitHub
+8. Dashboard (npm, Vite, the page)
+9. Git and GitHub
 
 Entries marked **(hit)** are problems that actually happened while building the project.

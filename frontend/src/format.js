@@ -1,0 +1,32 @@
+// Small helpers that turn API values into readable text. Dates are formatted in UTC so the day never shifts
+// with the viewer's time zone.
+
+const integer = new Intl.NumberFormat('en-US')
+
+export const formatInt = (n) => integer.format(n)
+
+export const formatPercent = (fraction, digits = 1) => `${(fraction * 100).toFixed(digits)}%`
+
+// '2018-02-21' -> '21 Feb 2018'
+export function formatDate(iso) {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+}
+
+// '2019-03' -> 'Mar 2019' (or 'March 2019' with style 'long')
+export function formatMonth(month, style = 'short') {
+  return new Date(`${month}-01T00:00:00Z`).toLocaleDateString('en-US', { month: style, year: 'numeric', timeZone: 'UTC' })
+}
+
+// 0, 500, 1.5K, 12K: for axis ticks
+export function compactNumber(n) {
+  if (n < 1000) return String(n)
+  const thousands = n / 1000
+  return `${Number.isInteger(thousands) ? thousands : thousands.toFixed(1)}K`
+}
+
+// The date a number of whole months before an ISO date, as an ISO date (for the "last 12 months" preset)
+export function monthsBefore(iso, months) {
+  const d = new Date(`${iso}T00:00:00Z`)
+  d.setUTCMonth(d.getUTCMonth() - months)
+  return d.toISOString().slice(0, 10)
+}

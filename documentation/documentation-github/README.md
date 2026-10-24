@@ -19,13 +19,15 @@ This folder explains the whole project in plain language: what was built, step b
 | [4. Recalls](1-step-logs/04-recalls.md) | 9,999 FDA recalls, recall endpoints, the N/A bug fix | Done |
 | [5. Analytics](1-step-logs/05-analytics.md) | Monthly trends, reason categories, spike detection | Done |
 | [6. AI insights](1-step-logs/06-ai-insights.md) | AI-written summaries of each spike, fact-checked (Hugging Face) | Done |
-| 7. Dashboard | Charts plus AI summaries on one page | Next |
-| 8. Reports and deploy | Report export and a live link | Not started |
+| [7. Dashboard](1-step-logs/07-dashboard.md) | React page with charts, spike summaries, NDC lookup and a live status light | Done |
+| 8. Reports and deploy | Report export and a live link | Next |
 
 Setup is step 0 so the numbers match the ones used in `CLAUDE.md`, the README and the Claude Code prompts.
 
 ## How this folder stays current
 
-After each step finishes, its log gets filled in, the file guide gets entries for any new or changed files, and the troubleshooting guide gets any new problems we hit. A new step gets a new log file (`07-dashboard.md`, and so on).
+After each step finishes, its log gets filled in, the file guide gets entries for any new or changed files, and the troubleshooting guide gets any new problems we hit. A new step gets a new log file (`08-reports-deploy.md`, and so on).
+
+This Markdown version lives in `documentation/documentation-github/` (committed to GitHub). The same files as PDFs live in `documentation/documentation/` (kept on your PC only, ignored by Git).
 
 A note on screenshots: these guides use code snippets copied from the real files instead of screenshots. Snippets stay accurate when you search for them in VS Code (`Ctrl+F`), and they don't go stale the way images do.

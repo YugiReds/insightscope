@@ -227,7 +227,57 @@ psql -U postgres -d insightscope -c "DELETE FROM insight_cache;"
 
 ---
 
-## 8. Git and GitHub
+## 8. Dashboard (npm, Vite, the page)
+
+### "'npm' is not recognized"
+- **Why:** Node.js isn't installed, or the window was opened before it was.
+- **Fix:** open a new PowerShell window and run `node -v`. If that fails too, install Node.js LTS.
+
+### `npm run dev` says "Missing script" or "Could not read package.json"
+- **Why:** you're in the project folder, not `frontend`.
+- **Fix:** `cd frontend` first.
+
+### "Cannot find module" / "vite is not recognized"
+- **Why:** packages aren't installed (fresh clone, or `node_modules/` deleted).
+- **Fix:** run `npm install` inside `frontend`.
+
+### The dev page won't load at `127.0.0.1:5173` (hit)
+- **Why:** on Windows the Vite dev server may only answer on `localhost`.
+- **Fix:** open http://localhost:5173.
+
+### The status light says "API unreachable" and a red banner appears
+- **Why:** FastAPI isn't running on port 8000. In dev mode Vite forwards API calls there.
+- **Fix:** start uvicorn in a second terminal. The sections reload by themselves within about 15 seconds.
+
+### The status light says "API is up, database unavailable"
+- **Why:** the API answered 503: PostgreSQL is stopped.
+- **Fix:** see "connection refused" in section 2.
+
+### `http://127.0.0.1:8000/` shows JSON `{"detail":"Not Found"}` instead of the dashboard
+- **Why:** the dashboard isn't built, or uvicorn started before the first build. `main.py` only mounts `frontend/dist/` if it existed at startup.
+- **Fix:** run `npm run build` inside `frontend`, then restart uvicorn.
+
+### The dashboard on port 8000 shows old content after a code change
+- **Why:** port 8000 serves the last **build**. Only the dev server (5173) updates live.
+- **Fix:** run `npm run build` again, or use the dev server while editing.
+
+### A new API endpoint 404s in dev mode but works on port 8000
+- **Why:** the Vite proxy only forwards the paths listed in `frontend/vite.config.js`.
+- **Fix:** add the new top-level path to `API_PATHS`, then restart `npm run dev`.
+
+### Every Python test fails to collect after editing `main.py` (hit)
+- **Why:** `from pathlib import Path` replaced FastAPI's `Path`.
+- **Fix:** use `import pathlib` and `pathlib.Path(...)`.
+
+### pytest shows "4 skipped"
+- **Not a problem.** Four dashboard tests check the real build and skip until `npm run build` has been run.
+
+### Spike cards take a few seconds on the first visit
+- **Why:** the AI writes any summaries that aren't cached yet. Later visits use the cache.
+
+---
+
+## 9. Git and GitHub
 
 ### "remote origin already exists" (hit)
 - **Why:** `git remote add origin` was run twice. The first one worked.
@@ -260,6 +310,9 @@ git check-ignore -v .env
 ```
 
 If it prints nothing, add it back: `Add-Content .gitignore ".env"`. If `.env` was already committed, change your PostgreSQL password and ask for help removing it from history.
+
+### `node_modules/` or `dist/` shows up in `git status`
+- **Stop. Don't commit.** Check `.gitignore` contains `frontend/node_modules/` and `frontend/dist/`: `git check-ignore -v frontend/node_modules`.
 
 ### Unexpected folders appear in `git status` (`.vscode/`, `.postman/`, `New Collection/`) (hit)
 - **Why:** tools create their own folders.
