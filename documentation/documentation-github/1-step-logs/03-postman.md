@@ -45,6 +45,7 @@ The test only **checks** the status code. The API decides it (see [step 2](02-ap
 | Step 4 (recalls) | 19 | 40 of 40 checks passed |
 | Step 5 (analytics) | 25 | Run after re-importing |
 | Step 6 (AI insights) | 26 | Run after re-importing |
+| Step 8a (reports) | 30 | 73 of 73 checks passed (run by Claude Code against the live server) |
 
 ## Postman quirks
 

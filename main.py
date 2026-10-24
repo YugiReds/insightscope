@@ -9,7 +9,7 @@ import time
 from datetime import date
 
 from fastapi import FastAPI, HTTPException, Path, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import distinct_on
@@ -17,6 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 import analytics
 import insights
+import reports
 from db import active_ingredients, get_engine, packages, products, recall_ndcs, recalls
 from schemas import (
     Health, LabelerCount, MonthlyRecalls, ProductDetail, ProductPage, ProductRecallPage, ProductSummary,
@@ -274,6 +275,33 @@ def recall_spike_insights():
     facts only, and falls back to a template if the AI is unavailable or says anything not in the facts."""
     with engine.begin() as conn:  # begin() commits when done, because good AI summaries are saved to the cache table
         return insights.spike_insights(conn, insights.get_client())
+
+
+# --- CSV reports (the logic lives in reports.py) ---
+
+CSV_RESPONSE = {200: {"description": "A CSV file download (UTF-8 with a byte order mark, so Excel reads accents correctly)", "content": {"text/csv": {}}}}
+
+
+@app.get("/reports/recalls.csv", responses=CSV_RESPONSE)
+def recalls_report(
+    start: date | None = Query(None, description="Only recalls reported on or after this date (YYYY-MM-DD)"),
+    end: date | None = Query(None, description="Only recalls reported on or before this date (YYYY-MM-DD)"),
+    classification: str | None = Query(None, description="Exact class, e.g. 'Class I' (case-insensitive)"),
+):
+    """Download the recalls as a CSV file: one row per recall, newest first."""
+    if start and end and start > end:
+        raise HTTPException(status_code=422, detail="start must not be later than end")
+    with engine.connect() as conn:
+        content, filename = reports.recalls_csv(conn, start, end, classification)
+    return Response(content=content, media_type="text/csv; charset=utf-8", headers=reports.download_headers(filename))
+
+
+@app.get("/reports/spikes.csv", responses=CSV_RESPONSE)
+def spikes_report():
+    """Download the spike months with their summaries as a CSV file. Saved (cached) summaries are reused."""
+    with engine.begin() as conn:  # begin() commits when done, because new good AI summaries are saved to the cache table
+        content, filename = reports.spikes_csv(conn, insights.get_client())
+    return Response(content=content, media_type="text/csv; charset=utf-8", headers=reports.download_headers(filename))
 
 
 # --- the dashboard (React app in frontend/, built into frontend/dist by `npm run build`) ---

@@ -37,7 +37,9 @@
   --critical: #d03b3b;
 }
 
-@media (prefers-color-scheme: dark) {
+/* The dark colours apply on SCREEN only ("screen and ..."). That is what keeps a printed page in light colours even
+   when the screen is in dark mode: the dark block simply does not exist for print, so the light values above win. */
+@media screen and (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
     --page: #0d0d0d;
@@ -103,6 +105,56 @@ body {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* What the printed report (Print / Save as PDF) looks like. Hiding the buttons, the lookup and the pickers is done with
+   Tailwind's print:hidden classes in the components. These are the rules that apply to the whole page. */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  body {
+    background: var(--card);
+  }
+  /* Smaller text on paper. Everything is sized in rem units, so this one line makes the whole page denser: cards get
+     shorter and more of them fit on each page. (Chart boxes are in pixels, so they are not affected.) */
+  html {
+    font-size: 12.5px;
+  }
+  /* Keep a heading and its description attached to whatever follows, so a heading is never left alone at the
+     bottom of a page. */
+  h2 + p {
+    break-after: avoid;
+  }
+  /* Browsers drop background colours when printing unless told not to. The class badges, the usual-level bars and
+     the chart's colours all need to print. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Do not split a card, a chart or a table row across two pages. (Whole sections are allowed to continue onto the
+     next page: forcing a tall section to stay in one piece just leaves big blank gaps.) */
+  article,
+  figure,
+  tr {
+    break-inside: avoid;
+  }
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+  /* The "View this chart as a table" and "What is in Other" folds are for screens. */
+  details {
+    display: none;
+  }
+  /* Links mean nothing on paper. */
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .skeleton {
+    animation: none;
+  }
 }
 
 /* Loading placeholders pulse, but only for people who have not asked for reduced motion. */

@@ -1,6 +1,7 @@
-import { CartesianGrid, ComposedChart, Bar, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { CartesianGrid, ComposedChart, Bar, Line, Tooltip, XAxis, YAxis } from 'recharts'
 import { explainError } from '../api.js'
 import { compactNumber, formatInt, formatMonth, formatPercent } from '../format.js'
+import ChartFrame from './ChartFrame.jsx'
 import { DiamondIcon } from './icons.jsx'
 
 // Recall classes are ordered by severity, so they share one blue ramp (darker = more serious).
@@ -116,8 +117,7 @@ export default function MonthlyChart({ monthly, spikes }) {
         </li>
       </ul>
 
-      <div className="mt-3 h-85 w-full">
-        <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 900, height: 340 }}>
+      <ChartFrame className="mt-3" height={340} printHeight={250} initialWidth={900}>
           <ComposedChart data={rows} margin={{ top: 22, right: 12, bottom: 4, left: 0 }} barCategoryGap="12%">
             <CartesianGrid vertical={false} stroke="var(--line)" />
             <XAxis
@@ -143,8 +143,7 @@ export default function MonthlyChart({ monthly, spikes }) {
             ))}
             <Line dataKey="spikeY" name="Spike month" stroke="none" dot={<SpikeDot />} activeDot={false} isAnimationActive={false} legendType="none" />
           </ComposedChart>
-        </ResponsiveContainer>
-      </div>
+      </ChartFrame>
 
       <figcaption className="mt-3 text-sm text-ink-2" data-testid="chart-summary">
         {summary}

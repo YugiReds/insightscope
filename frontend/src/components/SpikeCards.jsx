@@ -89,6 +89,12 @@ export function SpikeCard({ spike, model }) {
       <p className="mt-1 text-sm font-medium">{DRIVER_TEXT[facts.driver] ?? ''}</p>
 
       <p className="mt-3 leading-relaxed">{spike.summary}</p>
+      {/* A hover tooltip cannot be printed, so on paper the badge's explanation is written out. */}
+      <p className="mt-2 hidden text-xs print:block">
+        {spike.source === 'ai'
+          ? `Summary written by AI${model ? ` (${model})` : ''} from calculated facts. Every number was checked against them.`
+          : `Template summary. Why the AI was not used: ${spike.fallback_reason || 'no reason was given'}`}
+      </p>
       {spike.source === 'ai' && spike.cached && <p className="mt-2 text-xs text-ink-2">Saved summary (reused from the cache)</p>}
     </article>
   )
@@ -98,7 +104,7 @@ export default function SpikeCards({ data }) {
   if (!data.spikes.length) return <p>No spike months were found in the loaded data.</p>
   return (
     <div>
-      <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 print:grid-cols-2">
         {data.spikes.map((spike) => (
           <li key={spike.month} className="flex">
             <div className="flex w-full">

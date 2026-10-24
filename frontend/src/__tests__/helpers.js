@@ -5,6 +5,14 @@ export function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 }
 
+// A pretend CSV download, with the header the real API sends so the page can read the file name.
+export function csvResponse(body, filename) {
+  return new Response(body, {
+    status: 200,
+    headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${filename}"` },
+  })
+}
+
 // Replaces fetch. `handler(url)` returns a Response, or an Error to simulate "could not connect".
 export function stubFetch(handler) {
   const fetchMock = vi.fn(async (url) => {

@@ -668,6 +668,104 @@
               "path": ["insights", "recalls", "spikes"]
             }
           }
+        },
+        {
+          "name": "Recalls CSV download (Class I, 2025)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('it is a CSV download whose file name includes the date range and class', function () {",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv');",
+                  "    var disposition = pm.response.headers.get('Content-Disposition');",
+                  "    pm.expect(disposition).to.include('attachment');",
+                  "    pm.expect(disposition).to.include('insightscope-recalls_2025-01-01_to_2025-12-31_class-i.csv');",
+                  "});",
+                  "",
+                  "pm.test('the first line is the expected header', function () {",
+                  "    var text = pm.response.text().replace(/^\\uFEFF/, '');",
+                  "    pm.expect(text.split(/\\r?\\n/)[0]).to.eql('recall_number,report_date,classification,status,recalling_firm,product_description,reason_for_recall,reason_category');",
+                  "});",
+                  "",
+                  "pm.test('every recall row is Class I and reported inside the date range', function () {",
+                  "    // each recall row starts: recall_number,report_date,classification, (none of those three contain a comma)",
+                  "    var rows = pm.response.text().match(/^[^,\\r\\n\"]+,\\d{4}-\\d{2}-\\d{2},[^,\\r\\n\"]*,/gm) || [];",
+                  "    pm.expect(rows.length).to.be.above(0);",
+                  "    rows.forEach(function (row) {",
+                  "        var parts = row.split(',');",
+                  "        pm.expect(parts[1] >= '2025-01-01' && parts[1] <= '2025-12-31').to.be.true;",
+                  "        pm.expect(parts[2]).to.eql('Class I');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/recalls.csv?start=2025-01-01&end=2025-12-31&classification=Class%20I",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "recalls.csv"],
+              "query": [
+                { "key": "start", "value": "2025-01-01" },
+                { "key": "end", "value": "2025-12-31" },
+                { "key": "classification", "value": "Class I" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Spike summaries CSV download",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('it is a CSV download named for the spike months', function () {",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv');",
+                  "    var disposition = pm.response.headers.get('Content-Disposition');",
+                  "    pm.expect(disposition).to.include('attachment');",
+                  "    pm.expect(disposition).to.include('insightscope-spikes');",
+                  "});",
+                  "",
+                  "pm.test('the first line is the expected header', function () {",
+                  "    var text = pm.response.text().replace(/^\\uFEFF/, '');",
+                  "    pm.expect(text.split(/\\r?\\n/)[0]).to.eql('month,recalls,baseline_average,z_score,top_firm,top_firm_share_pct,top_reasons,summary,source,fallback_reason');",
+                  "});",
+                  "",
+                  "pm.test('there is one row per spike month, and each says whether its summary is ai or template', function () {",
+                  "    var text = pm.response.text();",
+                  "    var rows = text.match(/^\\d{4}-\\d{2},\\d+,/gm) || [];",
+                  "    pm.expect(rows.length).to.be.above(0);",
+                  "    var sources = text.match(/,(ai|template),/g) || [];",
+                  "    pm.expect(sources.length).to.be.at.least(rows.length);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/spikes.csv",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "spikes.csv"]
+            }
+          }
         }
       ]
     },
@@ -913,6 +1011,72 @@
               "raw": "{{baseUrl}}/analytics/recalls/reasons?start=not-a-date",
               "host": ["{{baseUrl}}"],
               "path": ["analytics", "recalls", "reasons"],
+              "query": [
+                { "key": "start", "value": "not-a-date" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Recalls CSV with a backwards date range returns 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "pm.test('the reason is given, and nothing is offered as a download', function () {",
+                  "    pm.expect(pm.response.json().detail).to.eql('start must not be later than end');",
+                  "    pm.expect(pm.response.headers.has('Content-Disposition')).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/recalls.csv?start=2025-12-31&end=2025-01-01",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "recalls.csv"],
+              "query": [
+                { "key": "start", "value": "2025-12-31" },
+                { "key": "end", "value": "2025-01-01" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Recalls CSV with an invalid date returns 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "pm.test('error body has a detail list', function () {",
+                  "    pm.expect(pm.response.json().detail).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/recalls.csv?start=not-a-date",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "recalls.csv"],
               "query": [
                 { "key": "start", "value": "not-a-date" }
               ]

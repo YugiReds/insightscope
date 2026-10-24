@@ -54,6 +54,8 @@ product tables, so reloading one dataset never wipes the other.
 | `GET /analytics/recalls/reasons` | Recalls per reason category (keyword rules). Optional `start` and `end` dates. Reports the share that landed in "Other" and the most common reasons no rule matched. |
 | `GET /analytics/recalls/spikes` | Months with unusually many recalls (z-score above 2 against the previous 12 months), each with its top 3 reason categories and top 3 recalling firms. |
 | `GET /insights/recalls/spikes` | Each spike's facts plus a plain-English summary. The summary comes from an AI that may only use those facts, or from a template when the AI is unavailable or says anything not in the facts. Every result says which (`source`) and why not the AI (`fallback_reason`). |
+| `GET /reports/recalls.csv` | Download the recalls as a CSV file, one row per recall, newest first. Optional `start`, `end` (dates) and `classification`. A backwards or invalid date range returns 422. |
+| `GET /reports/spikes.csv` | Download the spike months as a CSV file, with their summaries and whether each came from the AI or the template. Saved summaries are reused, so already-cached spikes cause no AI calls. |
 
 Example: `GET /products/76961-101` returns the product (Rolvedon, labeler Spectrum Pharmaceuticals) with
 `active_ingredients: [{"name": "EFLAPEGRASTIM", "strength": "13.2 mg/.6mL"}]` and a `packages` list.
@@ -152,6 +154,7 @@ A single page that shows everything the API knows, built with React (Vite), Tail
 - Reason categories with a date range picker (presets, or two date boxes).
 - "Has this drug been recalled?": an NDC lookup with four clearly different outcomes: recalls found, none found, a
   malformed NDC (the API's 422, shown with the right format), and an API or database error.
+- A "Download report" area: the two CSV files, and a Print / Save as PDF button. See "Reports" below.
 
 **When something is down.** Every section has its own loading state and its own plain-language error with a Try
 again button. If the API is down, a banner says so, and the sections reload by themselves when it comes back.
@@ -197,7 +200,7 @@ Build **before** starting uvicorn, or restart uvicorn after the first build: the
 
 ```
 cd frontend
-npm test                  # 38 dashboard tests (Vitest), with the API faked
+npm test                  # 64 dashboard tests (Vitest), with the API faked
 cd ..
 .\venv\Scripts\python.exe -m pytest    # includes tests/test_dashboard.py, which checks FastAPI serves the built page
 ```
@@ -218,6 +221,48 @@ generated, minified code in every diff and let it go stale. The trade-off is tha
 The built JavaScript is about 630 kB (185 kB compressed), mostly the charting library. It is not split into lazy-loaded
 pieces. The spike summaries can take a few seconds to appear the first time, because an AI writes them; later visits
 use the saved ones. There is no login: anyone who can reach the server can see the dashboard.
+
+## Reports: CSV files and a printable page
+
+The dashboard's **Download report** area has a button for each CSV file and a **Print / Save as PDF** button.
+
+**The two CSV files**
+
+| Address | One row per | Columns |
+|---|---|---|
+| `GET /reports/recalls.csv` | recall, newest first (ties broken by `recall_number`) | `recall_number`, `report_date`, `classification`, `status`, `recalling_firm`, `product_description`, `reason_for_recall`, `reason_category` |
+| `GET /reports/spikes.csv` | spike month | `month`, `recalls`, `baseline_average`, `z_score`, `top_firm`, `top_firm_share_pct`, `top_reasons`, `summary`, `source` (ai or template), `fallback_reason` |
+
+- The recalls file takes the optional `start` and `end` dates (both ends included) and `classification`. It follows the
+  date range chosen under "Why drugs are recalled" on the dashboard. A backwards range or an invalid date is a 422, the
+  same as the other endpoints. The file name says what is inside, for example
+  `insightscope-recalls_2025-01-01_to_2025-12-31_class-i.csv`.
+- The spikes file uses the saved summaries (see "AI summaries"), so a spike that already has one makes **no AI call**.
+  Only a spike without a saved summary can cause one, and then that summary is saved too.
+- **Opens correctly in Excel.** The files are UTF-8 with a byte order mark, which is how Excel knows to show names with
+  accents (Müller, Lääke) properly. Commas, quotes and line breaks inside a cell are quoted in the standard way.
+- **Protected against CSV injection.** A spreadsheet treats a cell that starts with `=`, `+`, `-`, `@`, a tab or a
+  carriage return as a formula to run. Our cells hold text we do not control (firm names, product descriptions,
+  AI-written summaries), so a cell like `=HYPERLINK(...)` could run when someone opens the file. Every such text cell gets
+  an apostrophe in front, which spreadsheets show as plain text and hide. It really matters here: one product description
+  in the data starts with `+` ("+Protec Hands Antibacterial Gel"). The cost is that the raw file shows an apostrophe on
+  values that genuinely start with those characters.
+
+**The printable report.** Print / Save as PDF opens the browser's print window (choose "Save as PDF" as the printer to
+get a file). The printed page has a title, the date it was generated, the date range, the four headline numbers, the
+monthly chart, every spike summary with its AI or Template badge (the reason a template was used is written out,
+because a hover tip cannot be printed), the reason categories, and the data limits. The buttons, the NDC lookup, the date
+pickers and the status light are hidden. It always prints in **light colours**, even if your screen is in dark mode. It is
+laid out for Letter and A4 paper (the chart is a fixed 620 px wide, which fits inside the margins of both, but only
+Letter has been checked on real output). In Chrome's print window, turning off "Headers and footers" gives a cleaner page.
+
+**Why print-to-PDF and not a PDF library on the server.** It keeps deployment simple. The server stays one Python process
+plus static files, with nothing new to install. Server-side PDF tools (WeasyPrint, wkhtmltopdf, ReportLab) need system
+libraries, fonts or separate programs on every server, which must be installed, updated and kept working. Print-to-PDF
+also means there is only one design: the page you see is the page that prints, and the browser already has the right
+fonts and paper sizes. The trade-offs are that the result varies slightly between browsers, and that nothing can make a
+PDF without a person at a browser, so scheduled or emailed PDF reports are not possible. If that is ever needed, the
+next step would be headless Chrome or a PDF library, added deliberately.
 
 ## Postman collection
 
@@ -336,6 +381,40 @@ The sections reload by themselves once `/health` is green again.
 The dashboard has not been built, or the server was started before it was. Run `npm run build` inside `frontend/`, then
 restart uvicorn (the dashboard is only mounted if `frontend/dist` exists when the server starts). `/docs` still works
 either way, which is a quick way to tell a missing build apart from a stopped server.
+
+**"Excel shows strange characters instead of accents (Müller looks like MÃ¼ller)."**
+Opening the file by double-clicking should work, because the file starts with a byte order mark that tells Excel it is UTF-8. If it still looks wrong, the file was probably brought in through Excel's import wizard (Data, From Text/CSV). In that wizard, set the file origin to "65001: Unicode (UTF-8)".
+
+**"Some cells in the CSV start with an apostrophe."**
+That is the CSV injection guard working. Any text cell that begins with `=`, `+`, `-`, `@`, a tab or a carriage return gets a leading apostrophe so a spreadsheet cannot run it as a formula. Spreadsheets hide the apostrophe. To get the original value in code, remove one leading apostrophe.
+
+**"The spike CSV took several seconds, and now it is fast."**
+The first download of a spike without a saved summary asks the AI to write it, and saves it. Every later download uses the saved summary. Check the `source` and `fallback_reason` columns: if every row says `template`, the AI was not used (see the "source: template" scenario above).
+
+**"The printed page looks wrong (a missing chart, a dark page, or buttons on paper)."**
+First check that you used the page's own Print / Save as PDF button or Ctrl+P on the dashboard (not a screenshot). Then see the bug story below for how a missing printed chart was tracked down. The printed page is designed to be light even on a dark screen, to hide the buttons and the lookup, and to show every chart.
+
+## Bug story: the chart that vanished from the printout
+
+**What broke.** The printable report looked right on screen, and every test passed, but in the printed pages the monthly
+chart was a blank gap between its legend and its caption.
+
+**How it was found.** Unit tests cannot print, because the test browser has no print engine. So the page was printed with
+Chrome's real print engine (a script started headless Chrome, loaded the page, waited for it to draw, and then asked for a
+PDF), and the pages were read. The chart's box was there but empty. Measuring the chart's elements while the browser
+pretended to be printing showed the box 631 px wide with the chart inside it 0 px wide.
+
+**The cause.** One print rule said a chart must never be wider than the page (`max-width: 100%`). The charting library
+draws inside a hidden wrapper that is zero pixels wide, so "100% of the wrapper" was 0 and the chart collapsed. Behind
+that was a second problem: when a browser switches to its print layout it does not wait for a stretchy chart to measure
+itself again.
+
+**The fix.** Remove the rule. Just before printing (the browser's `beforeprint` event) the charts switch to a fixed
+width that fits both Letter and A4 paper, and they switch back afterwards. Tests lock in both parts, and each was
+proven to fail when deliberately broken.
+
+**The lesson.** "The tests pass" is not the same as "it works on paper". Look at the real output, and when something
+exists but cannot be seen, measure it.
 
 ## Bug story: the recall that could not be opened
 

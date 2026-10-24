@@ -66,7 +66,9 @@ When the status light sees the API come back after an outage, every section that
 - **A real outage:** the server was stopped mid-session. The header switched to "API unreachable", a banner appeared, and the lookup offered Try again.
 - The Vite proxy gave answers identical to calling the API directly.
 
-**Not checked by eye yet:** light mode, narrow phone widths and keyboard use of the chart tooltip. Light mode passes the contrast checks, but nobody has looked at it.
+**Checked by hand afterwards:** light mode (forced through the browser's DevTools, since Opera follows its own theme instead of Windows) and phone width (DevTools device view). Everything was readable and nothing was cut off.
+
+**Still not hand-tested:** keyboard use of the chart tooltip.
 
 ## Testing the tests
 
@@ -129,7 +131,7 @@ Tests: `npm test` in `frontend`, and `.\venv\Scripts\python.exe -m pytest` in th
 
 | Commit | Message |
 | --- | --- |
-| *(pending)* | Add React dashboard served by FastAPI, with tests |
+| `999bdef` | Add React dashboard served by FastAPI, with tests; step 7 docs |
 
 ## Interview lines
 

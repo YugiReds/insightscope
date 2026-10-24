@@ -1,6 +1,6 @@
 # `tests/`: automated tests
 
-**Job:** code that calls your API and checks the answers are correct. 153 Python tests, plus 38 dashboard tests in `frontend/`.
+**Job:** code that calls your API and checks the answers are correct. 202 Python tests, plus 64 dashboard tests in `frontend/`.
 
 **Run them all:**
 
@@ -8,7 +8,7 @@
 .\venv\Scripts\python.exe -m pytest
 ```
 
-Add `-q` for shorter output. You want to see something like `149 passed, 4 skipped` before you build the dashboard, and `153 passed` after `npm run build`.
+Add `-q` for shorter output. You want to see something like `202 passed` once the dashboard is built. Before `npm run build`, 4 dashboard tests show as skipped.
 
 Dashboard tests (inside `frontend`): `npm test`. See [frontend.md](frontend.md).
 
@@ -21,6 +21,7 @@ Dashboard tests (inside `frontend`): `npm test`. See [frontend.md](frontend.md).
 | `tests/test_ingest_recalls.py` | 3 | Duplicate and blank recall-number warnings, no database needed |
 | `tests/test_analytics.py` | 48 | Spike math, partial months, keyword rules, real-data cross-checks |
 | `tests/test_dashboard.py` | 10 | FastAPI serves the built dashboard; API routes and `/docs` still win; unknown paths stay 404; why the mount must be last. Four of them skip until `npm run build` |
+| `tests/test_reports.py` | 49 | Both CSVs: headers, row counts vs. the database, filters, 422s, download header, CSV-injection guard, byte order mark, no AI calls when cached |
 | `tests/test_insights.py` | 50 | AI summaries with a fake client: good text, invented numbers, "products"/"items", timeouts, missing token, cache and prompt versions, no token leaks |
 
 ## Key patterns
@@ -88,5 +89,10 @@ A test that can never fail is useless. Each round, Claude Code broke the code on
 | Dashboard: 422 shown as a generic error | 1 |
 | Dashboard: "no recalls" shown as found | 2 |
 | Dashboard: unreachable API reported as a database problem | 1 |
+| Reports: CSV-injection guard removed | 10 |
+| Reports: end-date filter ignored | 5 |
+| Reports: byte order mark removed | 4 |
+| Reports: summary cache ignored | 2 |
+| Dashboard: chart-collapsing print rule put back | 1 |
 
 The insights tests never call the real AI: a safety net fails any test that tries to reach the network. The analytics tests use made-up data in a temporary table that's rolled back, so real data is never touched.

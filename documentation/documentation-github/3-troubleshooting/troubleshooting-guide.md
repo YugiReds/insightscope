@@ -229,6 +229,14 @@ psql -U postgres -d insightscope -c "DELETE FROM insight_cache;"
 
 ## 8. Dashboard (npm, Vite, the page)
 
+### DevTools won't open (F12 or Ctrl+Shift+I does nothing, or something else opens) (hit)
+- **Why:** on some keyboards (like Keychron) the F-keys default to media keys, and AMD Software grabs Ctrl+Shift+I for desktop recording.
+- **Fix:** right-click the page → **Inspect**. Then click the phone/tablet icon to test phone widths.
+
+### Light mode doesn't appear after switching Windows to Light (hit)
+- **Why:** some browsers (Opera) follow their own theme, not Windows.
+- **Fix:** test in Chrome, or in DevTools: **⋮ → More tools → Rendering → prefers-color-scheme: light**. Turn off any "Force dark pages" setting.
+
 ### "'npm' is not recognized"
 - **Why:** Node.js isn't installed, or the window was opened before it was.
 - **Fix:** open a new PowerShell window and run `node -v`. If that fails too, install Node.js LTS.
@@ -271,6 +279,24 @@ psql -U postgres -d insightscope -c "DELETE FROM insight_cache;"
 
 ### pytest shows "4 skipped"
 - **Not a problem.** Four dashboard tests check the real build and skip until `npm run build` has been run.
+
+### A download button shows an error, or `/reports/...` returns 404
+- **Why:** the API was started before the reports code existed, without `--reload`.
+- **Fix:** stop uvicorn (Ctrl+C) and start it again.
+
+### A CSV opens in Excel with garbled accented names
+- **Why:** the file lost its byte order mark (for example, re-saved by another tool).
+- **Fix:** download it again from the dashboard, or in Excel use Data → From Text/CSV and choose UTF-8.
+
+### A cell in the CSV starts with an apostrophe, like `'+Protec Hands Gel`
+- **Not a problem.** That's the CSV-injection guard. Excel hides the apostrophe and shows the text.
+
+### The chart is missing from the printed PDF (hit)
+- **Why:** on paper the chart's stretch-to-fit box can measure zero width.
+- **Fix:** already fixed: charts switch to a fixed width when printing starts. If it comes back after editing print CSS, check that charts don't have `max-width: 100%`, and that `ChartFrame.jsx` is still used.
+
+### The printout has the URL and date at the top and bottom
+- **Fix:** in the print window, open **More settings** and turn off **Headers and footers**.
 
 ### Spike cards take a few seconds on the first visit
 - **Why:** the AI writes any summaries that aren't cached yet. Later visits use the cache.

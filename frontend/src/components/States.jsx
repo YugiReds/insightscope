@@ -22,7 +22,7 @@ export function ErrorBox({ error, onRetry, stale = false }) {
       <p className="mt-1">{info.message}</p>
       {info.hint && <p className="mt-1 text-sm">{info.hint}</p>}
       {onRetry && (
-        <button type="button" onClick={onRetry} className="mt-3 rounded-md border border-err-line px-3 py-1.5 text-sm font-medium hover:bg-err-line/10">
+        <button type="button" onClick={onRetry} className="mt-3 rounded-md border border-err-line px-3 py-1.5 text-sm font-medium hover:bg-err-line/10 print:hidden">
           Try again
         </button>
       )}

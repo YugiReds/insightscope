@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 // Vite forwards these paths to the FastAPI server, so the browser only ever talks to ONE address and CORS never
 // comes into play. In production there is no Vite: FastAPI serves the built files itself (see main.py).
 const API = 'http://127.0.0.1:8000'
-const API_PATHS = ['health', 'products', 'recalls', 'analytics', 'insights', 'search', 'stats', 'docs', 'openapi.json']
+const API_PATHS = ['health', 'products', 'recalls', 'analytics', 'insights', 'reports', 'search', 'stats', 'docs', 'openapi.json']
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],

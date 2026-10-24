@@ -20,6 +20,7 @@ frontend/
     ├── api.js           fetches data, turns failures into plain words
     ├── hooks.js         loading logic and the status check
     ├── format.js        number and date formatting
+    ├── download.js      saves a fetched file to the computer
     ├── index.css        every colour, for light and dark mode
     ├── components/      one file per section
     └── __tests__/       dashboard tests + a fake API helper
@@ -84,10 +85,21 @@ Loads the data with `useApi`, shows an outage banner when the health check fails
 | `SpikeCards.jsx` | One card per spike with its summary and an AI/Template badge |
 | `ReasonCategories.jsx` | Reason bar chart with a date picker |
 | `NdcLookup.jsx` | NDC lookup with four outcomes: found, none, invalid, error |
+| `ReportBar.jsx` | "Download report": both CSV buttons and **Print / Save as PDF** (step 8a) |
+| `PrintHeader.jsx` | The report's title block (generated date, data coverage, date range). Hidden on screen, shown on paper |
+| `ChartFrame.jsx` | The box every chart sits in. Stretches on screen, fixed 620 px wide while printing |
 | `States.jsx` | Shared loading and error boxes (with Try again) |
 | `icons.jsx` | Small SVG icons |
 
 **Accessibility touches:** a "Skip to the dashboard" link, chart text summaries and table views, `role="status"` / `role="alert"` so screen readers announce changes, and states that never rely on colour alone.
+
+## Downloads and printing (step 8a)
+
+**Downloads:** `ReportBar.jsx` fetches the CSV itself (`getFile` in `api.js`), then `download.js` hands it to the browser as a normal download. So if the API is down or rejects the dates, the usual plain-language error appears instead of a broken file. The buttons are still real links, so right-click → copy link works.
+
+**Printing:** Tailwind's `print:` classes hide the interactive parts (`print:hidden`) and show print-only parts (`hidden print:block`). Print always uses light colours.
+
+**The chart bug:** on paper, Recharts' stretch-to-fit box measured zero width, so the chart vanished. `usePrinting()` in `hooks.js` listens for the browser's `beforeprint` event (fired by the button **and** by Ctrl+P), and `ChartFrame.jsx` then gives charts a fixed width until printing ends. `useGeneratedAt()` refreshes the "Generated" time the same way.
 
 ## `index.css`: colours
 
@@ -95,7 +107,7 @@ Every colour is a variable (like `--good` or `--critical`), defined once for lig
 
 ## Tests (`src/__tests__/`)
 
-38 tests run in a fake browser (jsdom) against a **fake API**, so they need no server. They check things like: the badge says AI or Template correctly, a 422 shows the API's message, "no recalls" never looks like a found result, and an unreachable API is never reported as a database problem.
+64 tests run in a fake browser (jsdom) against a **fake API**, so they need no server. They check things like: the badge says AI or Template correctly, a 422 shows the API's message, "no recalls" never looks like a found result, and an unreachable API is never reported as a database problem.
 
 ```powershell
 npm test

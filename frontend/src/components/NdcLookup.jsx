@@ -132,7 +132,7 @@ export default function NdcLookup() {
   }
 
   return (
-    <section aria-labelledby="ndc-heading" className="rounded-xl border border-line bg-card p-5 shadow-sm">
+    <section aria-labelledby="ndc-heading" className="rounded-xl border border-line bg-card p-5 shadow-sm print:hidden">
       <h2 id="ndc-heading" className="text-lg font-semibold">Has this drug been recalled?</h2>
       <p className="mt-1 text-sm text-ink-2">Look up a drug by its NDC, the drug's national code.</p>
 

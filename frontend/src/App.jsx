@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react'
-import { useApi, useHealth } from './hooks.js'
+import { useApi, useDateRange, useHealth } from './hooks.js'
 import MonthlyChart from './components/MonthlyChart.jsx'
 import NdcLookup from './components/NdcLookup.jsx'
+import PrintHeader from './components/PrintHeader.jsx'
 import ReasonCategories from './components/ReasonCategories.jsx'
+import ReportBar from './components/ReportBar.jsx'
 import SpikeCards from './components/SpikeCards.jsx'
 import StatusIndicator from './components/StatusIndicator.jsx'
 import { Section } from './components/States.jsx'
@@ -13,7 +15,7 @@ import { CrossIcon, WarnIcon } from './components/icons.jsx'
 function OutageBanner({ status }) {
   if (status === 'api-down') {
     return (
-      <div role="alert" className="flex items-start gap-3 rounded-xl border border-err-line bg-err-bg p-4 text-err-ink">
+      <div role="alert" className="flex items-start gap-3 rounded-xl border border-err-line bg-err-bg p-4 text-err-ink print:hidden">
         <CrossIcon className="mt-0.5 shrink-0" />
         <div>
           <p className="font-semibold">The InsightScope API is not answering.</p>
@@ -24,7 +26,7 @@ function OutageBanner({ status }) {
   }
   if (status === 'db-down') {
     return (
-      <div role="alert" className="flex items-start gap-3 rounded-xl border border-warn-line bg-warn-bg p-4 text-warn-ink">
+      <div role="alert" className="flex items-start gap-3 rounded-xl border border-warn-line bg-warn-bg p-4 text-warn-ink print:hidden">
         <WarnIcon className="mt-0.5 shrink-0" />
         <div>
           <p className="font-semibold">The API is running, but it cannot reach its database.</p>
@@ -43,6 +45,7 @@ export default function App() {
   const monthly = useApi('/analytics/recalls/monthly')
   const spikes = useApi('/analytics/recalls/spikes')
   const insights = useApi('/insights/recalls/spikes')
+  const range = useDateRange() // the date range under "Why drugs are recalled", shared with the download buttons and the printout
 
   // When the API comes back after an outage, reload every section that failed instead of making the user click.
   const wasDown = useRef(false)
@@ -56,7 +59,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:rounded focus:bg-card focus:px-3 focus:py-2">
+      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:rounded focus:bg-card focus:px-3 focus:py-2 print:hidden">
         Skip to the dashboard
       </a>
       <header className="border-b border-line bg-card">
@@ -65,7 +68,7 @@ export default function App() {
             <h1 className="text-xl font-semibold">InsightScope</h1>
             <p className="text-sm text-ink-2">FDA drug recall analytics</p>
           </div>
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4 print:hidden">
             <a href="/docs" className="text-sm font-medium text-accent-ink underline">
               API docs
             </a>
@@ -76,6 +79,8 @@ export default function App() {
 
       <main id="main" className="mx-auto max-w-6xl space-y-6 px-4 py-6">
         <OutageBanner status={health.status} />
+        <PrintHeader coverage={monthly.data?.coverage} range={range} />
+        <ReportBar range={range} />
 
         <SummaryTiles total={total} classOne={classOne} spikes={spikes} monthly={monthly} />
 
@@ -99,7 +104,7 @@ export default function App() {
           {(data) => <SpikeCards data={data} />}
         </Section>
 
-        <ReasonCategories coverage={monthly.data?.coverage} />
+        <ReasonCategories coverage={monthly.data?.coverage} range={range} />
 
         <NdcLookup />
       </main>
@@ -107,6 +112,11 @@ export default function App() {
       <footer className="mx-auto max-w-6xl px-4 py-8 text-sm text-ink-2">
         <p>
           Data: the FDA's openFDA drug directory and enforcement reports. Only the newest recalls are loaded, and only about one recall in four names an NDC.
+        </p>
+        <p className="mt-2 hidden print:block">
+          Summaries marked AI were written by an AI model from numbers this system calculated, and every number in them was
+          checked against those facts. Summaries marked Template are plain text built from the same facts. Neither is a
+          substitute for checking the FDA directly.
         </p>
       </footer>
     </div>

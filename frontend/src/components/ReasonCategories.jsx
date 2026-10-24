@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { useApi } from '../hooks.js'
-import { formatDate, formatInt, formatPercent, monthsBefore } from '../format.js'
+import { Bar, BarChart, LabelList, Tooltip, XAxis, YAxis } from 'recharts'
+import { useApi, useDateRange } from '../hooks.js'
+import { describeRange, formatDate, formatInt, formatPercent, monthsBefore } from '../format.js'
+import ChartFrame from './ChartFrame.jsx'
 import { Section } from './States.jsx'
 
 // A bar that grows from the baseline with a rounded tip. "Other" (nothing matched a keyword rule) is grey so it
@@ -39,8 +39,7 @@ function ReasonsBody({ data }) {
   const rows = data.categories.map((c) => ({ ...c, label: `${formatInt(c.recalls)} · ${formatPercent(c.share)}` }))
   return (
     <figure>
-      <div style={{ height: rows.length * 38 + 16 }} className="w-full">
-        <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 700, height: rows.length * 38 + 16 }}>
+      <ChartFrame height={rows.length * 38 + 16} printHeight={rows.length * 30 + 16} initialWidth={700}>
           <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 8, bottom: 4, left: 0 }} barCategoryGap="22%">
             <XAxis type="number" hide domain={[0, (max) => Math.max(1, max * 1.4)]} />
             <YAxis
@@ -56,8 +55,7 @@ function ReasonsBody({ data }) {
               <LabelList dataKey="label" position="right" style={{ fill: 'var(--ink-2)', fontSize: 12 }} />
             </Bar>
           </BarChart>
-        </ResponsiveContainer>
-      </div>
+      </ChartFrame>
       <figcaption className="mt-2 text-sm text-ink-2" data-testid="reasons-summary">
         {summarizeReasons(data)}
       </figcaption>
@@ -104,10 +102,11 @@ function ReasonsBody({ data }) {
 
 // The date range picker sits above the chart it filters. "Presets" (all time, last 12 or 24 months) are one click;
 // the two date boxes are for a custom range. A backwards range is caught here, before anything is sent.
-export default function ReasonCategories({ coverage }) {
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
-  const rangeError = from && to && from > to ? 'The "From" date must be on or before the "To" date.' : null
+export default function ReasonCategories({ coverage, range }) {
+  // The page normally shares one date range with the download buttons and the printout. If none is passed in
+  // (for example in a test), this section keeps its own.
+  const own = useDateRange()
+  const { from, to, setFrom, setTo, error: rangeError } = range ?? own
 
   const params = new URLSearchParams()
   if (from) params.set('start', from)
@@ -195,7 +194,12 @@ export default function ReasonCategories({ coverage }) {
       description="Each recall's reason is sorted into a category by keyword rules."
       state={state}
       loadingLabel="Loading reason categories…"
-      headerExtras={picker}
+      headerExtras={
+        <>
+          <div className="print:hidden">{picker}</div>
+          <p className="mt-2 hidden text-sm print:block">Recalls included: {describeRange(from, to)}.</p>
+        </>
+      }
     >
       {(data) => <ReasonsBody data={data} />}
     </Section>

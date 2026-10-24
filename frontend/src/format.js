@@ -12,6 +12,19 @@ export function formatDate(iso) {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
 }
 
+// A date and time in the viewer's own time zone, for "generated on" lines: '24 Oct 2026, 14:05'
+export function formatDateTime(date) {
+  return date.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+// Says what a chosen date range means, in words: for the report note and the printed page.
+export function describeRange(from, to) {
+  if (from && to) return `reported from ${formatDate(from)} to ${formatDate(to)}`
+  if (from) return `reported from ${formatDate(from)} onwards`
+  if (to) return `reported up to ${formatDate(to)}`
+  return 'all recalls in the loaded data'
+}
+
 // '2019-03' -> 'Mar 2019' (or 'March 2019' with style 'long')
 export function formatMonth(month, style = 'short') {
   return new Date(`${month}-01T00:00:00Z`).toLocaleDateString('en-US', { month: style, year: 'numeric', timeZone: 'UTC' })

@@ -1,5 +1,44 @@
 import { useCallback, useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { ApiError, getJson } from './api.js'
+
+// The date range chosen under "Why drugs are recalled". It lives here (not inside that section) so the "Download
+// report" buttons and the printed page can follow the same range.
+export function useDateRange() {
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const error = from && to && from > to ? 'The "From" date must be on or before the "To" date.' : null
+  return { from, to, setFrom, setTo, error }
+}
+
+// True while the browser is printing (from just before the print layout is made until printing ends). Charts use it to
+// switch to a fixed width, because a stretchy chart cannot be trusted to resize itself in time for paper.
+export function usePrinting() {
+  const [printing, setPrinting] = useState(false)
+  useEffect(() => {
+    const start = () => flushSync(() => setPrinting(true)) // flushSync: finish updating the page BEFORE printing starts
+    const end = () => flushSync(() => setPrinting(false))
+    window.addEventListener('beforeprint', start)
+    window.addEventListener('afterprint', end)
+    return () => {
+      window.removeEventListener('beforeprint', start)
+      window.removeEventListener('afterprint', end)
+    }
+  }, [])
+  return printing
+}
+
+// The date and time shown on the printed report. It is refreshed just before printing, so a page that has been
+// open for hours still prints the moment it was printed.
+export function useGeneratedAt() {
+  const [generatedAt, setGeneratedAt] = useState(() => new Date())
+  useEffect(() => {
+    const refresh = () => flushSync(() => setGeneratedAt(new Date())) // flushSync: update the page BEFORE printing starts
+    window.addEventListener('beforeprint', refresh)
+    return () => window.removeEventListener('beforeprint', refresh)
+  }, [])
+  return generatedAt
+}
 
 // Loads one API path and reports { data, error, loading, reload }.
 // While it reloads (a new path, or reload()), the previous data stays so the page does not jump or flash.

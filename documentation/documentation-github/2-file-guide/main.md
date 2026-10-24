@@ -105,6 +105,8 @@ offset: int = Query(0, ge=0),
 | `GET /analytics/recalls/reasons` | Calls `analytics.reason_categories`; 422 if start is after end |
 | `GET /analytics/recalls/spikes` | Calls `analytics.recall_spikes` |
 | `GET /insights/recalls/spikes` | Calls `insights.py`: each spike's facts plus an AI or template summary |
+| `GET /reports/recalls.csv` | Calls `reports.recalls_csv`; optional start, end, classification; 422 for a bad range; sent as a download |
+| `GET /reports/spikes.csv` | Calls `reports.spikes_csv`; reuses cached AI summaries |
 
 The recall, analytics and insights endpoints follow the same patterns shown above. Open `main.py` and search for `@app.get` to jump between them.
 

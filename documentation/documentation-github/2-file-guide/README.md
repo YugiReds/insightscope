@@ -10,7 +10,7 @@ openFDA website
    ▼
 PostgreSQL database  ◄── db.py (connection + table definitions, reads .env)
    ▲
-   │  main.py (endpoints)  +  analytics.py (math)  +  insights.py (AI summaries)  +  schemas.py (response shapes)
+   │  main.py (endpoints)  +  analytics.py (math)  +  reports.py (CSV)  +  insights.py (AI summaries)  +  schemas.py (response shapes)
    │
 Clients: the dashboard (frontend/, served by main.py at /), your browser (/docs), Postman, the tests
 ```
@@ -32,6 +32,7 @@ Clients: the dashboard (frontend/, served by main.py at /), your browser (/docs)
 | `schemas.py` | The shape of every API response | [schemas.md](schemas.md) |
 | `analytics.py` | Monthly trends, reason categories, spike detection | [analytics.md](analytics.md) |
 | `insights.py` | AI-written spike summaries, fact-checked, with a template fallback | [insights.md](insights.md) |
+| `reports.py` | CSV downloads of recalls and spikes, safe for Excel | [reports.md](reports.md) |
 | `checks.sql` / `run_checks.py` | Data quality checks | [checks.md](checks.md) |
 | `tests/` | Automated tests | [tests.md](tests.md) |
 | `postman/insightscope.postman_collection.json` | The Postman collection | [postman.md](postman.md) |

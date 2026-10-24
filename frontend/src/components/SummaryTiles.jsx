@@ -13,7 +13,7 @@ function Tile({ label, state, children }) {
         <div role="alert" className="mt-1">
           <p className="font-medium">Unavailable</p>
           <p className="text-sm text-ink-2">{explainError(state.error).title}</p>
-          <button type="button" onClick={state.reload} className="mt-1 text-sm font-medium text-accent-ink underline">
+          <button type="button" onClick={state.reload} className="mt-1 text-sm font-medium text-accent-ink underline print:hidden">
             Try again
           </button>
         </div>
@@ -30,7 +30,7 @@ const Sub = ({ children }) => <p className="mt-1 text-sm text-ink-2">{children}<
 export default function SummaryTiles({ total, classOne, spikes, monthly }) {
   const classShare = combineStates([total, classOne], ([all, one]) => ({ all: all.total, one: one.total }))
   return (
-    <section aria-label="Summary" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <section aria-label="Summary" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 print:grid-cols-4">
       <Tile label="Total recalls" state={total}>
         {(data) => (
           <>

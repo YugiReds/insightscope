@@ -21,7 +21,9 @@ export function describeDetail(detail) {
   return JSON.stringify(detail)
 }
 
-export async function getJson(path, { signal, timeoutMs = 25000 } = {}) {
+// The part both getJson and getFile share: send the request, give up after a time limit, and turn "could not
+// connect" into a network ApiError. `readBody` then reads the answer in the way the caller needs.
+async function request(path, { signal, timeoutMs, accept }, readBody) {
   const controller = new AbortController()
   let timedOut = false
   const timer = setTimeout(() => {
@@ -33,29 +35,59 @@ export async function getJson(path, { signal, timeoutMs = 25000 } = {}) {
   try {
     let response
     try {
-      response = await fetch(path, { signal: controller.signal, headers: { Accept: 'application/json' } })
+      response = await fetch(path, { signal: controller.signal, headers: { Accept: accept } })
     } catch (error) {
       if (signal?.aborted) throw error // the caller cancelled (for example the section went away): not a failure to report
       throw new ApiError('network', timedOut ? `The API did not answer within ${timeoutMs / 1000} seconds.` : 'Could not connect to the API.')
     }
-    let body = null
-    try {
-      body = await response.json()
-    } catch {
-      // the body was empty or not JSON
-    }
-    if (!response.ok) {
-      throw new ApiError('http', `HTTP ${response.status}`, {
-        status: response.status,
-        detail: body && body.detail !== undefined ? body.detail : null,
-      })
-    }
-    if (body === null) throw new ApiError('http', 'The API answered with something that is not JSON.', { status: response.status })
-    return body
+    return await readBody(response)
   } finally {
     clearTimeout(timer)
     signal?.removeEventListener('abort', forwardAbort)
   }
+}
+
+// An error answer from the API (a 422, a 503...) as an ApiError. The body is JSON with a `detail` when it is one of ours.
+async function httpError(response) {
+  let body = null
+  try {
+    body = await response.json()
+  } catch {
+    // the body was empty or not JSON
+  }
+  return new ApiError('http', `HTTP ${response.status}`, {
+    status: response.status,
+    detail: body && body.detail !== undefined ? body.detail : null,
+  })
+}
+
+export function getJson(path, { signal, timeoutMs = 25000 } = {}) {
+  return request(path, { signal, timeoutMs, accept: 'application/json' }, async (response) => {
+    if (!response.ok) throw await httpError(response)
+    let body = null
+    try {
+      body = await response.json()
+    } catch {
+      // not JSON
+    }
+    if (body === null) throw new ApiError('http', 'The API answered with something that is not JSON.', { status: response.status })
+    return body
+  })
+}
+
+// The file name the server chose, from a header like: attachment; filename="insightscope-recalls_all-dates.csv"
+export function filenameFromDisposition(header) {
+  const match = /filename="([^"]+)"/.exec(header ?? '')
+  return match ? match[1] : null
+}
+
+// Downloads a file (the CSV reports). It waits longer than getJson, because the spike file may need the AI to
+// write a summary the first time.
+export function getFile(path, { signal, timeoutMs = 60000 } = {}) {
+  return request(path, { signal, timeoutMs, accept: 'text/csv' }, async (response) => {
+    if (!response.ok) throw await httpError(response)
+    return { blob: await response.blob(), filename: filenameFromDisposition(response.headers.get('Content-Disposition')) }
+  })
 }
 
 // Turns an error into plain words: a title, what happened, and what to check next.
