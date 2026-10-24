@@ -156,6 +156,26 @@ class Spike(BaseModel):
     top_recalling_firms: list[FirmTotal]
 
 
+class SpikeFacts(Spike):
+    """A spike's numbers plus how much of the month one firm explains. Computed by our code, never by the AI."""
+    top_firm_share_pct: int                    # the top firm's recalls as a percent of the month's recalls
+    driver: str                                # one_firm (50% or more), large_share (25-49%), spread, or unknown
+
+
+class InsightSpike(BaseModel):
+    month: str
+    facts: SpikeFacts
+    summary: str
+    source: str                                # "ai" or "template"
+    fallback_reason: str | None = None         # why the template was used, when source is "template"
+    cached: bool                               # true if an earlier AI summary was reused
+
+
+class SpikeInsights(BaseModel):
+    model: str
+    spikes: list[InsightSpike]
+
+
 class SpikeReport(BaseModel):
     method: str
     threshold: float

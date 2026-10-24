@@ -14,10 +14,11 @@ from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.exc import SQLAlchemyError
 
 import analytics
+import insights
 from db import active_ingredients, get_engine, packages, products, recall_ndcs, recalls
 from schemas import (
     Health, LabelerCount, MonthlyRecalls, ProductDetail, ProductPage, ProductRecallPage, ProductSummary,
-    ReasonCategories, RecallDetail, RecallPage, SpikeReport,
+    ReasonCategories, RecallDetail, RecallPage, SpikeInsights, SpikeReport,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -261,3 +262,13 @@ def recalls_spikes():
     """Months with unusually many recalls (z-score above 2 against the previous 12 months), with their top reasons and firms."""
     with engine.connect() as conn:
         return analytics.recall_spikes(conn)
+
+
+# --- AI summaries of the spikes (the logic lives in insights.py) ---
+
+@app.get("/insights/recalls/spikes", response_model=SpikeInsights)
+def recall_spike_insights():
+    """Each recall spike with its facts and a plain-English summary. The summary is written by an AI from those
+    facts only, and falls back to a template if the AI is unavailable or says anything not in the facts."""
+    with engine.begin() as conn:  # begin() commits when done, because good AI summaries are saved to the cache table
+        return insights.spike_insights(conn, insights.get_client())

@@ -610,6 +610,64 @@
               "path": ["analytics", "recalls", "spikes"]
             }
           }
+        },
+        {
+          "name": "Spike insights (AI summaries)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('a model name is given and there is at least one spike', function () {",
+                  "    var body = pm.response.json();",
+                  "    pm.expect(body.model).to.be.a('string').and.not.empty;",
+                  "    pm.expect(body.spikes).to.not.be.empty;",
+                  "});",
+                  "",
+                  "pm.test('every spike has a summary and a source of ai or template', function () {",
+                  "    pm.response.json().spikes.forEach(function (s) {",
+                  "        pm.expect(s.summary).to.be.a('string').and.not.empty;",
+                  "        pm.expect(s.source).to.be.oneOf(['ai', 'template']);",
+                  "        pm.expect(s.cached).to.be.a('boolean');",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test('a template summary always explains why, and an AI summary never does', function () {",
+                  "    pm.response.json().spikes.forEach(function (s) {",
+                  "        if (s.source === 'template') {",
+                  "            pm.expect(s.fallback_reason).to.be.a('string').and.not.empty;",
+                  "            pm.expect(s.summary).to.include(String(s.facts.recalls));",
+                  "        } else {",
+                  "            pm.expect(s.fallback_reason).to.be.null;",
+                  "        }",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test('the driver matches the top firm share (50% or more is one firm)', function () {",
+                  "    pm.response.json().spikes.forEach(function (s) {",
+                  "        var share = s.facts.top_firm_share_pct;",
+                  "        var expected = share >= 50 ? 'one_firm' : (share >= 25 ? 'large_share' : 'spread');",
+                  "        pm.expect(s.facts.driver).to.eql(expected);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/insights/recalls/spikes",
+              "host": ["{{baseUrl}}"],
+              "path": ["insights", "recalls", "spikes"]
+            }
+          }
         }
       ]
     },

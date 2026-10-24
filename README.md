@@ -52,6 +52,7 @@ product tables, so reloading one dataset never wipes the other.
 | `GET /analytics/recalls/monthly` | Recalls per month (by report date), split by classification. A partly covered oldest month is left out, and the response says which. |
 | `GET /analytics/recalls/reasons` | Recalls per reason category (keyword rules). Optional `start` and `end` dates. Reports the share that landed in "Other" and the most common reasons no rule matched. |
 | `GET /analytics/recalls/spikes` | Months with unusually many recalls (z-score above 2 against the previous 12 months), each with its top 3 reason categories and top 3 recalling firms. |
+| `GET /insights/recalls/spikes` | Each spike's facts plus a plain-English summary. The summary comes from an AI that may only use those facts, or from a template when the AI is unavailable or says anything not in the facts. Every result says which (`source`) and why not the AI (`fallback_reason`). |
 
 Example: `GET /products/76961-101` returns the product (Rolvedon, labeler Spectrum Pharmaceuticals) with
 `active_ingredients: [{"name": "EFLAPEGRASTIM", "strength": "13.2 mg/.6mL"}]` and a `packages` list.
@@ -75,8 +76,9 @@ and how much they usually vary (the standard deviation). The z-score is how many
 above that average: `z = (this month - average) / standard deviation`. A z above 2 is a rule of thumb: if monthly
 counts were bell-curve shaped, only about 2% of months would reach it, so it is flagged as unusual. Months with no
 recalls count as 0, a month needs 12 months of history to be scored, and a perfectly flat history cannot be scored.
-In the loaded data every spike is mostly one firm (for example, King Bio Inc. accounts for 465 of the 535 recalls
-in March 2019).
+In the loaded data every spike is driven largely by one firm: the top firm accounts for 41% to 87% of the month's
+recalls, and for more than half of them in three of the six spikes (for example, King Bio Inc. accounts for 465 of
+the 535 recalls in March 2019).
 One limit: a huge spike inflates the variation for the next 12 months, which makes smaller spikes in that period
 harder to flag.
 
@@ -86,6 +88,34 @@ unapproved drug, or other. The rules are checked in order and the first match wi
 the broad CGMP bucket after them, and the catch-alls last. So "CGMP Deviations: carcinogen impurity detected" counts
 as Impurities, and "potential" does not count as potency. The endpoint reports how much landed in "Other" (2.5% when
 written) and lists the most common reasons nothing matched, so you can tell when the rules need updating.
+
+## AI summaries: how they stay honest
+
+`GET /insights/recalls/spikes` explains each spike in a few plain sentences. The logic is in `insights.py`.
+
+1. **Our code does the maths.** Every number comes from the analytics (month, count, usual level, z-score, top
+   reasons and firms). Our code also works out how much of the month one firm explains: 50% or more is "mainly one
+   firm's mass recall", 25% to 49% is "one firm drove a large part", and less is "no single firm dominates".
+2. **The AI only writes it up.** The prompt gives the model those facts and tells it not to add any facts, causes,
+   names, dates or numbers. It runs on Hugging Face's hosted inference with a small instruction-tuned model.
+3. **A guardrail checks the answer.** Every number in the AI's text must appear in the facts it was given, and
+   vague quantities like "hundreds of recalls" are rejected. One invented number and the whole AI summary is dropped.
+4. **A template is the fallback.** If the AI is unavailable (no `HF_TOKEN`, timeout, error, no credits) or fails the
+   guardrail, a plain template written from the same facts is used. The result says `source: "template"` and gives
+   the `fallback_reason`. After one failed call, the other spikes in the same request skip the AI, so an outage costs
+   one timeout, not six.
+5. **Good AI summaries are cached** in the Postgres table `insight_cache`. It survives restarts, is shared by every
+   worker, and can be inspected in pgAdmin. The key is a hash of the facts, the model and the prompt version, so a
+   changed number or model gets a fresh summary. Templates and failures are not cached, so the next request tries
+   the AI again. Clear it with `DELETE FROM insight_cache;`.
+
+**Setup.** Put a Hugging Face token in `.env` as `HF_TOKEN=...` (never commit it, and the code never prints it).
+No extra package is needed: it uses `requests`. Choose another model with `HF_MODEL`. Run
+`.\venv\Scripts\python.exe insights.py` to see each spike's summary, its source and any fallback reason.
+
+**Status.** The AI path is covered by tests that use a fake AI and never touch the network. The Hugging Face account
+used to build this had no inference credits (HTTP 402), so no real model has been verified yet, and until credits
+exist the endpoint returns template summaries. Those are complete and correct, just less fluent.
 
 ## Postman collection
 
@@ -182,6 +212,14 @@ share a report date), so a stable table pages cleanly. The usual cause is the da
 `ingest_recalls.py` replaces the table, and new recalls push the older ones down, which shifts every later page.
 Repeat the whole download while no reload is running. If duplicates persist with a stable table, suspect the sort
 (compare it with the order the tests expect) and send the `limit`, `offset` and a repeated recall number.
+
+**"`/insights/recalls/spikes` says `source: template` for every spike."**
+The endpoint is working, but the AI was not used. Read `fallback_reason`, because it says why. "HF_TOKEN is not set"
+means no token is in `.env`. "HTTP 402 (no remaining credits)" means the Hugging Face account cannot pay for
+inference. "HTTP 401" means the token was rejected, and "HTTP 403" means it lacks the Inference Providers
+permission. "timed out" or "could not reach Hugging Face" points at the network or the service. "the AI summary was
+rejected: it contains numbers that are not in the facts" means the model made something up and the guardrail
+worked as intended. Only the first failure in a request is tried: the other spikes then say they were skipped.
 
 ## Bug story: the recall that could not be opened
 

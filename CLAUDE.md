@@ -21,8 +21,9 @@ data service over public drug data. Lean scope on purpose.
 - `ingest_recalls.py` - step 4 script: same pattern for the openFDA drug enforcement (recalls) API. Fetches everything before touching the database, then replaces both recall tables in one transaction.
 - `main.py` - FastAPI app (step 2): `/health`, `/products`, `/products/{ndc}`, `/stats/labelers`, `/search`, `/recalls`, `/recalls/{recall_number}`, `/products/{ndc}/recalls`. All NDC reads go through the `latest` subquery (one row per NDC, newest `marketing_start_date`).
 - `schemas.py` - Pydantic response models for the API.
+- `insights.py` - step 6 AI summaries of the recall spikes (Hugging Face, with guardrail, template fallback and a Postgres cache table `insight_cache`). Called by `/insights/recalls/spikes`.
 - `analytics.py` - step 5 recall analytics (monthly counts, reason categories, spike detection). Plain SQL via `text()`, called by the `/analytics/recalls/*` endpoints in `main.py`.
-- `tests/test_api.py`, `tests/test_recalls_api.py`, `tests/test_analytics.py`, `tests/test_ingest_recalls.py`, `pytest.ini` - tests. `README.md` - public-facing overview with troubleshooting scenarios.
+- `tests/test_api.py`, `tests/test_recalls_api.py`, `tests/test_analytics.py`, `tests/test_insights.py`, `tests/test_ingest_recalls.py`, `pytest.ini` - tests. `README.md` - public-facing overview with troubleshooting scenarios.
 - `checks.sql` / `run_checks.py` - integrity checks (orphans, duplicates) and a runner that prints PASS/WARN/FAIL.
 
 ## Data model
@@ -52,8 +53,16 @@ only the row with the latest `marketing_start_date` for each NDC, otherwise it w
 - Reason categories come from `REASON_RULES`, checked in order, first match wins (specific problems first, the broad CGMP bucket after them, catch-alls last). Never use the keyword `potent` (it matches "potential"). `Other` was 2.5% when written, and a test fails if it passes 10%.
 - Tests with made-up data use a TEMP table named `recalls` that shadows the real one for one connection and is rolled back, so real data is never touched. Every rule above has a test that was proven to fail when the code was deliberately broken.
 
+## AI summary rules (insights.py)
+- `HF_TOKEN` lives in `.env`. Never print it, log it, or put it in an error message (`AIError` messages are written to be safe). No extra package: the client uses `requests` against `https://router.huggingface.co/v1/chat/completions`.
+- The AI only rephrases facts our code computed. The guardrail (`check_summary`) rejects any number not in the facts text (and vague words like "hundreds"), and then the template (`template_summary`) is used. Every result carries `source` ("ai" or "template") and `fallback_reason`. Do not weaken the guardrail to get more AI output.
+- After the first failed AI call in a request, the remaining spikes skip the AI (one outage = one timeout).
+- Cache = Postgres table `insight_cache` (created on first use with `CREATE TABLE IF NOT EXISTS`, not in any MetaData, so reloads never wipe it). Key = hash of prompt version + model + facts. Only validated AI summaries are cached. Bump `PROMPT_VERSION` when the prompt changes.
+- Tests must NEVER call the real AI: `tests/test_insights.py` has an autouse fixture that makes any real `requests.post` fail, uses a fake client, and uses a TEMP `insight_cache`. Keep it that way.
+- The default model (`meta-llama/Llama-3.1-8B-Instruct`) is UNVERIFIED: the account had no inference credits (HTTP 402) when it was built. After adding credits, run `.\venv\Scripts\python.exe insights.py` and check the real summaries before relying on them.
+
 ## Commands
-- Run the tests: `.\venv\Scripts\python.exe -m pytest` (93 tests in `tests/`, most run against the real database).
+- Run the tests: `.\venv\Scripts\python.exe -m pytest` (136 tests in `tests/`, most run against the real database).
 - Run the API: `.\venv\Scripts\python.exe -m uvicorn main:app --reload`, then open http://127.0.0.1:8000/docs.
 - Load data: `.\venv\Scripts\python.exe ingest.py` (drops and recreates the tables each run, so it is safe to re-run).
 - Load recalls: `.\venv\Scripts\python.exe ingest_recalls.py [number_of_records]` (default 10,000 newest by `report_date`; safe to re-run).
