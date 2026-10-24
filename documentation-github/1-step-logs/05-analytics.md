@@ -41,7 +41,7 @@ Limits to admit in an interview: "z above 2" is a rule of thumb, and one huge sp
 
 ## The six spikes found
 
-2019-03, 2021-06, 2021-11, 2022-06, 2025-04 and 2025-10. Each is mostly **one company's mass recall**. For example, King Bio Inc. had 465 of March 2019's 535 recalls. So "recalls surged" would be misleading: the honest story is "one firm pulled hundreds of products." Step 6's AI summaries need to reflect that.
+2019-03, 2021-06, 2021-11, 2022-06, 2025-04 and 2025-10. In each, one company drives a large share, but not always most of it. In 3 of the 6 the top firm has 57–87% of the month (King Bio Inc. had 465 of March 2019's 535 recalls); in the other 3 it's 41–49%. So "recalls surged" would be misleading, and so would "every spike is one firm's mass recall." Step 6's summaries state the top firm's exact share for each spike.
 
 ## Reason categories (keyword rules)
 
@@ -73,4 +73,6 @@ The tests use made-up data in a temporary table that's rolled back, so real data
 
 ## Git commits in this step
 
-Step 5 is on GitHub (`analytics.py` is in the repo). Record the exact commit message here after running `git log --oneline -3`.
+| Commit | Message |
+| --- | --- |
+| `388937c` | Add recall analytics with tests and Postman requests; stop tracking Postman's YAML copies |

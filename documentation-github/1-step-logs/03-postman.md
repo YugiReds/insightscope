@@ -43,12 +43,13 @@ The test only **checks** the status code. The API decides it (see [step 2](02-ap
 | --- | --- | --- |
 | Step 3 | 9 (6 happy path, 3 error cases) | 20 of 20 checks passed |
 | Step 4 (recalls) | 19 | 40 of 40 checks passed |
-| Step 5 (analytics) | 25 | Expected 25 requests passing; run it after re-importing |
+| Step 5 (analytics) | 25 | Run after re-importing |
+| Step 6 (AI insights) | 26 | Run after re-importing |
 
 ## Postman quirks
 
 - During setup Postman linked the project folder and created a `.postman/` folder, which was added to `.gitignore`.
-- Postman also writes its own YAML copies under `postman/collections/` and `postman/globals/`. They go out of sync whenever the JSON changes. The plan in step 5 was to stop tracking them in Git (`git rm -r --cached postman/collections postman/globals`) and add both to `.gitignore`.
+- Postman also writes its own YAML copies under `postman/collections/` and `postman/globals/`. They go out of sync whenever the JSON changes, so in step 5 they were removed from Git (`git rm -r --cached postman/collections postman/globals`) and added to `.gitignore`.
 - The committed `postman/globals/workspace.globals.yaml` was checked: it's empty, so nothing sensitive went public.
 - An empty "New Collection" placeholder appeared once and is gone.
 

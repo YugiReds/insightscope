@@ -170,7 +170,45 @@ Stop-Process -Id <the number shown>
 
 ---
 
-## 6. Tests and Postman
+## 6. AI summaries (Hugging Face)
+
+### Every summary says `source: template` (hit)
+- **Why:** the AI call didn't happen or failed. The `fallback_reason` field says which:
+  - **"HTTP 402 (no remaining credits)"**: your Hugging Face credit balance is $0. Free accounts get no monthly credits for hosted models. Add credits under **Settings → Billing** on huggingface.co.
+  - **Missing token**: `HF_TOKEN` isn't in `.env`. Check with `Select-String -Path .env -Pattern "HF_TOKEN" -Quiet` (should print `True`).
+  - **HTTP 401 or 403**: the token is wrong, deleted, or lacks permission. Create a fine-grained token with the **Inference** preset.
+  - **Timeout or other HTTP error**: the provider is busy; try again later.
+
+### One summary is a template while the others are AI (hit)
+- **Why:** the fact-checker rejected that AI summary because it contained a number not in the facts (e.g. "contains numbers that are not in the facts: 4").
+- **Fix:** nothing; this is the guardrail doing its job, and the template is accurate. If rejections become frequent, improve the prompt or change `HF_MODEL`. Don't weaken the checker.
+
+### A summary has correct numbers but says something the data doesn't (hit)
+- **Example:** "Cardinal Health's 198 recalls were due to CGMP violations." The facts never link a firm to a reason.
+- **Why:** the number check can't see claims, only numbers.
+- **Fix:** add a prompt rule, bump `PROMPT_VERSION` in `insights.py` (so every summary regenerates), and re-check all six. If the rule can be written as code (like "products"/"items"), add a code check instead. This is how prompt v2 and v3 came about.
+
+### `insight_cache` has more rows than spikes
+- **Why:** each prompt version or model change creates new cache keys; old rows are never used again.
+- **Fix (optional):** `DELETE FROM insight_cache;` clears it, and the next request regenerates the current summaries (costs a few cents).
+
+### A summary didn't change after reloading the data
+- **Why:** it shouldn't stay stale: the cache key includes the facts, so changed numbers get a fresh summary. If the numbers didn't change, the cached summary is correct.
+- **To force fresh summaries:** clear the cache table:
+
+```powershell
+psql -U postgres -d insightscope -c "DELETE FROM insight_cache;"
+```
+
+### You accidentally shared your token (hit)
+- **Fix:** on huggingface.co → **Access Tokens**, delete it, create a new one, and paste the new one straight into `.env`. Never paste a token into a chat or a screenshot.
+
+### Worried about cost
+- Check **Settings → Billing → Inference Usage** on huggingface.co. Keep **Automatic Recharge** off so you can never spend more than you added. Cached summaries don't call the AI again.
+
+---
+
+## 7. Tests and Postman
 
 ### Tests fail with a database error
 - **Why:** PostgreSQL isn't running, or the data isn't loaded. Most tests run against the real database.
@@ -189,7 +227,7 @@ Stop-Process -Id <the number shown>
 
 ---
 
-## 7. Git and GitHub
+## 8. Git and GitHub
 
 ### "remote origin already exists" (hit)
 - **Why:** `git remote add origin` was run twice. The first one worked.

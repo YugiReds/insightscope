@@ -18,8 +18,8 @@ This folder explains the whole project in plain language: what was built, step b
 | [3. Postman](1-step-logs/03-postman.md) | A saved Postman collection that tests the API | Done |
 | [4. Recalls](1-step-logs/04-recalls.md) | 9,999 FDA recalls, recall endpoints, the N/A bug fix | Done |
 | [5. Analytics](1-step-logs/05-analytics.md) | Monthly trends, reason categories, spike detection | Done |
-| [6. AI insights](1-step-logs/06-ai-insights.md) | AI-written summaries of each spike (Hugging Face) | Next |
-| 7. Dashboard | Charts plus AI summaries on one page | Not started |
+| [6. AI insights](1-step-logs/06-ai-insights.md) | AI-written summaries of each spike, fact-checked (Hugging Face) | Done |
+| 7. Dashboard | Charts plus AI summaries on one page | Next |
 | 8. Reports and deploy | Report export and a live link | Not started |
 
 Setup is step 0 so the numbers match the ones used in `CLAUDE.md`, the README and the Claude Code prompts.

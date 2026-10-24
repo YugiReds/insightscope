@@ -104,8 +104,9 @@ offset: int = Query(0, ge=0),
 | `GET /analytics/recalls/monthly` | Calls `analytics.monthly_recalls` |
 | `GET /analytics/recalls/reasons` | Calls `analytics.reason_categories`; 422 if start is after end |
 | `GET /analytics/recalls/spikes` | Calls `analytics.recall_spikes` |
+| `GET /insights/recalls/spikes` | Calls `insights.py`: each spike's facts plus an AI or template summary |
 
-The recall and analytics endpoints follow the same patterns shown above. Open `main.py` and search for `@app.get` to jump between them.
+The recall, analytics and insights endpoints follow the same patterns shown above. Open `main.py` and search for `@app.get` to jump between them.
 
 ## Status codes at a glance
 

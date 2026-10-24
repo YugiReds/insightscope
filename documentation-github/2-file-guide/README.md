@@ -10,7 +10,7 @@ openFDA website
    ▼
 PostgreSQL database  ◄── db.py (connection + table definitions, reads .env)
    ▲
-   │  main.py (endpoints)  +  analytics.py (math)  +  schemas.py (response shapes)
+   │  main.py (endpoints)  +  analytics.py (math)  +  insights.py (AI summaries)  +  schemas.py (response shapes)
    │
 Clients: your browser (/docs), Postman, the tests
 ```
@@ -31,10 +31,11 @@ Clients: your browser (/docs), Postman, the tests
 | `main.py` | **The API**: every endpoint | [main.md](main.md) |
 | `schemas.py` | The shape of every API response | [schemas.md](schemas.md) |
 | `analytics.py` | Monthly trends, reason categories, spike detection | [analytics.md](analytics.md) |
+| `insights.py` | AI-written spike summaries, fact-checked, with a template fallback | [insights.md](insights.md) |
 | `checks.sql` / `run_checks.py` | Data quality checks | [checks.md](checks.md) |
 | `tests/` | Automated tests | [tests.md](tests.md) |
 | `postman/insightscope.postman_collection.json` | The Postman collection | [postman.md](postman.md) |
 
 ## If you were rebuilding the API from scratch
 
-The minimum set is `.env` → `db.py` → `schemas.py` → `main.py`, plus `requirements.txt`. The loaders fill the database; `analytics.py` adds the analytics endpoints; everything else checks or tests.
+The minimum set is `.env` → `db.py` → `schemas.py` → `main.py`, plus `requirements.txt`. The loaders fill the database; `analytics.py` adds the analytics endpoints; `insights.py` adds the AI summaries; everything else checks or tests.

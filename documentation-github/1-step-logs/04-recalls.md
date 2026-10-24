@@ -88,4 +88,4 @@ This story is written up in the project README.
 | --- | --- |
 | `fd01525` | Add FDA recalls dataset: ingestion, tables, and checks |
 | `2ae8643` | Add recall endpoints with tests, Postman requests, and README docs |
-| `212fa94` | Follow-up commit (message not recorded; likely placeholder cleanup) |
+| `212fa94` | Remove empty Postman placeholder collection |

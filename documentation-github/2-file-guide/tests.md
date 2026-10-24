@@ -1,6 +1,6 @@
 # `tests/`: automated tests
 
-**Job:** code that calls your API and checks the answers are correct. 93 tests in total.
+**Job:** code that calls your API and checks the answers are correct. 143 tests in total.
 
 **Run them all:**
 
@@ -8,7 +8,7 @@
 .\venv\Scripts\python.exe -m pytest
 ```
 
-Add `-q` for shorter output. You want to see something like `93 passed`.
+Add `-q` for shorter output. You want to see something like `143 passed`.
 
 ## The test files
 
@@ -18,6 +18,7 @@ Add `-q` for shorter output. You want to see something like `93 passed`.
 | `tests/test_recalls_api.py` | 28 | Recall endpoints, full paging, null fields, the N/A recall |
 | `tests/test_ingest_recalls.py` | 3 | Duplicate and blank recall-number warnings, no database needed |
 | `tests/test_analytics.py` | 48 | Spike math, partial months, keyword rules, real-data cross-checks |
+| `tests/test_insights.py` | 50 | AI summaries with a fake client: good text, invented numbers, "products"/"items", timeouts, missing token, cache and prompt versions, no token leaks |
 
 ## Key patterns
 
@@ -76,5 +77,9 @@ A test that can never fail is useless. Each round, Claude Code broke the code on
 | Included a month in its own baseline | 7 |
 | Disabled the partial-month rule | 5 |
 | Used the keyword "potent" | 1 |
+| AI number check switched off | 6 |
+| AI guardrail never called | 9 |
+| AI cache key ignores the facts | 3 |
+| AI "products"/"items" check switched off | 4 |
 
-The analytics tests use made-up data in a temporary table that's rolled back, so real data is never touched.
+The insights tests never call the real AI: a safety net fails any test that tries to reach the network. The analytics tests use made-up data in a temporary table that's rolled back, so real data is never touched.

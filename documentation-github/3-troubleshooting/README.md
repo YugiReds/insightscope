@@ -7,7 +7,8 @@ The full guide is in [troubleshooting-guide.md](troubleshooting-guide.md), group
 3. Loading data
 4. Running the API
 5. API responses (what a user might report)
-6. Tests and Postman
-7. Git and GitHub
+6. AI summaries (Hugging Face)
+7. Tests and Postman
+8. Git and GitHub
 
 Entries marked **(hit)** are problems that actually happened while building the project.

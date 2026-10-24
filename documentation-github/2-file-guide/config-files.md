@@ -4,7 +4,13 @@ These aren't code, but the project doesn't work (or isn't safe) without them.
 
 ## `.env`: the secrets file
 
-**Job:** holds the database connection string, including your PostgreSQL password. Step 6 adds `HF_TOKEN` (your Hugging Face token).
+**Job:** holds the secrets and settings the code reads at runtime:
+
+| Line | Meaning |
+| --- | --- |
+| `DATABASE_URL` | The database connection string, including your PostgreSQL password |
+| `HF_TOKEN` | Your Hugging Face token (step 6). Fine-grained, Inference preset |
+| `HF_MODEL` | Optional: which AI model to use; defaults to `meta-llama/Llama-3.1-8B-Instruct` |
 
 **What it looks like** (password replaced):
 
@@ -40,6 +46,8 @@ __pycache__/
 *.pyc
 .vscode/
 .postman/
+postman/collections/
+postman/globals/
 ```
 
 | Entry | Why it's ignored |
@@ -49,8 +57,7 @@ __pycache__/
 | `__pycache__/`, `*.pyc` | Python's temporary compiled files |
 | `.vscode/` | Your personal VS Code settings |
 | `.postman/` | Postman's local workspace files |
-
-If you stop tracking Postman's YAML copies (step 5 plan), `postman/collections/` and `postman/globals/` are added here too.
+| `postman/collections/`, `postman/globals/` | Postman's own YAML copies, which drift out of sync; the JSON collection is the source of truth |
 
 ## `requirements.txt`: the package list
 
