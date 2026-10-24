@@ -5,6 +5,8 @@ records, cleans them with pandas, and loads them into PostgreSQL. A second scrip
 most recent FDA drug recalls (the openFDA enforcement API). A FastAPI service then lets clients look the data
 up over HTTP, and a React dashboard shows it all on one page.
 
+**Live demo:** https://insightscope.onrender.com (Render free web service + Neon free Postgres). The first visit after about 15 minutes idle takes up to a minute while the free server wakes up.
+
 **Stack:** Python, pandas, SQLAlchemy, PostgreSQL, FastAPI, pytest. Dashboard: React, Vite, Tailwind CSS, Recharts, Vitest.
 
 ## How it fits together
@@ -140,10 +142,7 @@ summary, March 2019, does both), and "significant spike", which can be mistaken 
 
 A single page that shows everything the API knows, built with React (Vite), Tailwind CSS and Recharts.
 
-<!-- Add a screenshot at screenshots/dashboard.png, then remove this comment markup to show it:
-![InsightScope dashboard](screenshots/dashboard.png)
--->
-*Screenshot: save one as `screenshots/dashboard.png` and uncomment the image line above.*
+![InsightScope dashboard: status light, summary tiles, recalls per month with spike markers, spike cards and recall reasons](screenshots/dashboard.png)
 
 **What it shows:**
 - A header with a live status light. It tells three situations apart: everything fine, the API is up but its database
@@ -318,24 +317,31 @@ This project is not deployed. In production the same code would run like this:
 
 ## Deploying to Render and Neon
 
-`render.yaml` describes one free Render web service. Neon hosts the database.
+The live app (https://insightscope.onrender.com) runs as one free Render web service with a free Neon Postgres
+database. `render.yaml` describes the service. This is what was done:
 
-1. In Neon, click **Connect**, switch **Connection pooling OFF**, and copy the direct connection string (not the pooled one, whose host contains `-pooler`). It looks like `postgresql://user:password@host/db?sslmode=require`. The app
-   accepts `postgres://`, `postgresql://` and `postgresql+psycopg://` and fixes the prefix itself (`normalize_database_url` in `db.py`).
-2. In Render choose **New > Blueprint**, pick this repository, and paste `DATABASE_URL` and `HF_TOKEN` when asked
-   (they are `sync: false`, so they are never stored in git).
-3. The first start creates every table on the empty database by itself (in the background, so `/health` answers at once).
-4. To fill Neon with data, run the ingest scripts from your own PowerShell. A `DATABASE_URL` set in the shell wins over `.env`:
+1. **Database:** in Neon, click **Connect**, switch **Connection pooling OFF**, and copy the direct connection string
+   (not the pooled one, whose host contains `-pooler`). It looks like `postgresql://user:password@host/db?sslmode=require`.
+   The app accepts `postgres://`, `postgresql://` and `postgresql+psycopg://` and fixes the prefix itself
+   (`normalize_database_url` in `db.py`).
+2. **Hugging Face token:** create a separate fine-grained token with only the permission "Make calls to Inference
+   Providers", used for nothing else.
+3. **Render:** choose **New > Blueprint** and pick this repository. Render reads `render.yaml`. When asked, enter
+   `DATABASE_URL` (the Neon direct string) and `HF_TOKEN` as secrets. They are `sync: false`, so they are never stored in git.
+4. **Tables:** the first start creates every table on the empty database by itself (in the background, so `/health`
+   answers at once).
+5. **Data:** load it from your own PowerShell. A `DATABASE_URL` set in the shell wins over `.env`, and `Read-Host`
+   keeps the password out of the command history and the screen recording:
 
 ```powershell
-$env:DATABASE_URL = "postgresql://user:password@host/db?sslmode=require"   # paste your real Neon string
-.env\Scripts\python.exe ingest.py
-.env\Scripts\python.exe ingest_recalls.py
+$env:DATABASE_URL = Read-Host "Neon direct connection string"   # paste it when asked
+.\venv\Scripts\python.exe ingest.py
+.\venv\Scripts\python.exe ingest_recalls.py
 Remove-Item Env:DATABASE_URL
 ```
 
 Free-tier note: Render sleeps an idle service and Neon suspends an idle database, so the first request after a quiet
-period can take tens of seconds. Render's health check uses `/health`, which does not touch the database.
+period can take up to a minute. Render's health check uses `/health`, which does not touch the database.
 
 ## Troubleshooting scenarios
 
@@ -399,6 +405,11 @@ all: the server is stopped, or (in development) only the dashboard is running an
 up, database unavailable" means the API answered with a 503: PostgreSQL is down or `DATABASE_URL` is wrong. A section
 showing "The API returned an error (HTTP 422)" means the request itself was rejected, and the message says why.
 The sections reload by themselves once the status light is green again.
+
+**"The badge says 'API unreachable' but the data still loads."**
+The data loading proves the API is answering, so the browser itself is blocking the status check. A browser extension
+can interfere with the dashboard's requests (seen with the SimplyCodes extension in Opera). Open the page in a private
+window, where extensions are normally off, and check again. If the badge is green there, the app is fine.
 
 **"Opening `http://127.0.0.1:8000/` shows `{"detail":"Not Found"}` instead of the dashboard."**
 The dashboard has not been built, or the server was started before it was. Run `npm run build` inside `frontend/`, then
