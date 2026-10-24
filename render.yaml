@@ -1,0 +1,29 @@
+# Render Blueprint: ONE free web service that runs the FastAPI API and also serves the built dashboard.
+# The Postgres database lives separately on Neon; its address goes in DATABASE_URL.
+# Render reads this file when you create a Blueprint from the repository.
+services:
+  - type: web
+    name: insightscope
+    runtime: python
+    region: virginia
+    plan: free
+    # 1) install the Python packages, then 2) build the dashboard into frontend/dist, which main.py serves at /
+    buildCommand: pip install -r requirements.txt && cd frontend && npm ci --include=dev && npm run build
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    # /health answers at once and never touches the database, so Render's checks do not keep Neon awake.
+    healthCheckPath: /health
+    envVars:
+      # Secrets: "sync: false" means Render asks you for the value when you create the service. They are never in git.
+      - key: DATABASE_URL
+        sync: false
+      - key: HF_TOKEN
+        sync: false
+      - key: HF_MODEL
+        value: meta-llama/Llama-3.1-8B-Instruct
+      # Render needs a FULL Python version here (x.y.z). This is the version the project was built and tested on.
+      - key: PYTHON_VERSION
+        value: "3.12.10"
+      # The dashboard build needs Node: Vite 8 wants 20.19+ or 22.12+, and the test tools want 24.15+ (or 22.22+).
+      # This is the version it was built and tested on.
+      - key: NODE_VERSION
+        value: "24.15.0"

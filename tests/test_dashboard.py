@@ -100,7 +100,8 @@ def test_the_real_app_still_serves_docs_and_the_api():
     client = TestClient(main.app)
     assert client.get("/docs").status_code == 200
     assert client.get("/openapi.json").status_code == 200
-    assert client.get("/health").json() == {"status": "ok", "database": "reachable"}
+    assert client.get("/health").json() == {"status": "ok"}
+    assert client.get("/health/db").json() == {"status": "ok", "database": "reachable"}  # not swallowed by the dashboard mount
     # The API's own 404 message (not the dashboard's) for a recall number with slashes: the :path route still wins.
     unknown = client.get("/recalls/A/B/C")
     assert unknown.status_code == 404 and unknown.json()["detail"] == "No recall found with recall number A/B/C"

@@ -78,28 +78,64 @@ export function combineStates(states, merge) {
   }
 }
 
-// Asks /health every few seconds and says which of three different things is wrong:
-//   'ok'       the API answered and the database is reachable
-//   'db-down'  the API answered, but with 503: it cannot reach PostgreSQL
-//   'api-down' no answer at all
+// Keeps the header's status light up to date, and says which of three different things is wrong:
+//   'ok'       the API answers AND its database answers
+//   'db-down'  the API answers, but /health/db says the database cannot be reached (503)
+//   'api-down' no answer from the API at all
 // (plus 'checking' for the first request and 'error' for anything unexpected)
-export function useHealth(intervalMs = 15000) {
+//
+// It asks TWO questions, because they are two different routes:
+//   /health     "is the API up?"  Cheap and never touches the database, so it is asked often (every 15 seconds).
+//   /health/db  "is the database up?"  It wakes a sleeping database (Neon suspends it when idle), so it is asked
+//               rarely: once at the start, again every minute, never while the tab is hidden, and straight away
+//               after the API comes back from an outage. A forgotten browser tab must not keep the database awake.
+export function useHealth(intervalMs = 15000, databaseIntervalMs = 60000) {
   const [health, setHealth] = useState({ status: 'checking', detail: null })
 
   useEffect(() => {
     let cancelled = false
     const controller = new AbortController()
+    let database = null // what we last learned about the database: null (not known yet), 'ok' or 'down'
+    let databaseError = null
+    let lastDatabaseCheck = 0
+
+    function failed(error) {
+      if (error instanceof ApiError && error.kind === 'network') return { status: 'api-down', detail: error }
+      return { status: 'error', detail: error }
+    }
 
     async function check() {
+      // 1. Is the API itself answering?
       try {
-        const body = await getJson('/health', { signal: controller.signal, timeoutMs: 8000 })
-        if (!cancelled) setHealth({ status: body.status === 'ok' ? 'ok' : 'error', detail: body })
+        await getJson('/health', { signal: controller.signal, timeoutMs: 8000 })
       } catch (error) {
         if (cancelled || controller.signal.aborted) return
-        if (error instanceof ApiError && error.kind === 'network') setHealth({ status: 'api-down', detail: error })
-        else if (error instanceof ApiError && error.status === 503) setHealth({ status: 'db-down', detail: error })
-        else setHealth({ status: 'error', detail: error })
+        database = null // after an outage, look at the database again as soon as the API is back
+        setHealth(failed(error))
+        return
       }
+
+      // 2. Is its database reachable? Only ask now and then (see the comment above).
+      const now = Date.now()
+      const due = database === null || (!document.hidden && now - lastDatabaseCheck >= databaseIntervalMs)
+      if (due) {
+        lastDatabaseCheck = now
+        try {
+          await getJson('/health/db', { signal: controller.signal, timeoutMs: 15000 })
+          database = 'ok'
+        } catch (error) {
+          if (cancelled || controller.signal.aborted) return
+          if (error instanceof ApiError && error.status === 503) {
+            database = 'down'
+            databaseError = error
+          } else {
+            database = null
+            setHealth(failed(error))
+            return
+          }
+        }
+      }
+      if (!cancelled) setHealth(database === 'down' ? { status: 'db-down', detail: databaseError } : { status: 'ok', detail: null })
     }
 
     check()
@@ -109,7 +145,7 @@ export function useHealth(intervalMs = 15000) {
       controller.abort()
       clearInterval(id)
     }
-  }, [intervalMs])
+  }, [intervalMs, databaseIntervalMs])
 
   return health
 }

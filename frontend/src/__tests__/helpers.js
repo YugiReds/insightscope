@@ -111,7 +111,8 @@ export const RECALL_ITEM = {
 // A router for the whole dashboard: every path the page asks for gets a realistic answer.
 export function healthyApi(overrides = {}) {
   const routes = {
-    '/health': () => jsonResponse({ status: 'ok', database: 'reachable' }),
+    '/health': () => jsonResponse({ status: 'ok' }),
+    '/health/db': () => jsonResponse({ status: 'ok', database: 'reachable' }),
     '/recalls?limit=1': () => jsonResponse({ total: 9999, limit: 1, offset: 0, items: [] }),
     '/recalls?classification=Class%20I&limit=1': () => jsonResponse({ total: 1175, limit: 1, offset: 0, items: [] }),
     '/analytics/recalls/monthly': () => jsonResponse(MONTHLY),

@@ -42,7 +42,8 @@ product tables, so reloading one dataset never wipes the other.
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /health` | Confirms the API can reach the database. |
+| `GET /health` | Confirms the API process is up. Never touches the database, so it is fast and cannot wake a sleeping one. |
+| `GET /health/db` | Runs `SELECT 1`. Returns `503` if the database cannot be reached. |
 | `GET /products` | List products. Filters: `labeler`, `dosage_form`. Paging: `limit` (1-100), `offset`. |
 | `GET /products/{ndc}` | One product with its ingredients and packages. 404 if the NDC is unknown. |
 | `GET /stats/labelers` | Labelers ranked by number of distinct NDCs. |
@@ -145,8 +146,9 @@ A single page that shows everything the API knows, built with React (Vite), Tail
 *Screenshot: save one as `screenshots/dashboard.png` and uncomment the image line above.*
 
 **What it shows:**
-- A header with a live status light from `/health`. It tells three situations apart: everything fine, the API is up
-  but its database is not, and the API cannot be reached at all (checked every 15 seconds).
+- A header with a live status light. It tells three situations apart: everything fine, the API is up but its database
+  is not, and the API cannot be reached at all. `/health` is checked every 15 seconds; `/health/db` only about once a
+  minute and never while the tab is hidden, so a forgotten tab cannot keep a sleeping database awake.
 - Four summary tiles: total recalls, the share that are Class I, the number of spike months, and the date range covered.
 - Recalls per month as stacked columns split by classification, with a diamond on every spike month.
 - A card for each spike with its count against the usual level, the top firm and its share, the summary, and a badge
@@ -311,8 +313,29 @@ This project is not deployed. In production the same code would run like this:
 - **A managed PostgreSQL database** on its own server, not on the same machine as the API.
 - **The dashboard** is served by the same FastAPI process, so `npm run build` must be part of the deploy (the build
   output is not stored in git).
-- **Health checks and logs:** a monitoring system calls `/health` every few seconds and alerts or restarts the
+- **Health checks and logs:** a monitoring system calls `/health` (which does not touch the database) every few seconds and alerts or restarts the
   service if it stops answering. The request log (status code and milliseconds) is where to start debugging.
+
+## Deploying to Render and Neon
+
+`render.yaml` describes one free Render web service. Neon hosts the database.
+
+1. In Neon, click **Connect**, switch **Connection pooling OFF**, and copy the direct connection string (not the pooled one, whose host contains `-pooler`). It looks like `postgresql://user:password@host/db?sslmode=require`. The app
+   accepts `postgres://`, `postgresql://` and `postgresql+psycopg://` and fixes the prefix itself (`normalize_database_url` in `db.py`).
+2. In Render choose **New > Blueprint**, pick this repository, and paste `DATABASE_URL` and `HF_TOKEN` when asked
+   (they are `sync: false`, so they are never stored in git).
+3. The first start creates every table on the empty database by itself (in the background, so `/health` answers at once).
+4. To fill Neon with data, run the ingest scripts from your own PowerShell. A `DATABASE_URL` set in the shell wins over `.env`:
+
+```powershell
+$env:DATABASE_URL = "postgresql://user:password@host/db?sslmode=require"   # paste your real Neon string
+.env\Scripts\python.exe ingest.py
+.env\Scripts\python.exe ingest_recalls.py
+Remove-Item Env:DATABASE_URL
+```
+
+Free-tier note: Render sleeps an idle service and Neon suspends an idle database, so the first request after a quiet
+period can take tens of seconds. Render's health check uses `/health`, which does not touch the database.
 
 ## Troubleshooting scenarios
 
@@ -328,7 +351,7 @@ The request itself is invalid, and the response body says which field. Common ca
 below 1, a negative `offset`, or a search `q` shorter than 2 characters.
 
 **"Every request returns 503 'Database unavailable'."**
-The API is running but cannot reach PostgreSQL. Call `/health` to confirm. Then check that the PostgreSQL service
+The API is running but cannot reach PostgreSQL. Call `/health/db` to confirm (`/health` only says the API is up). Then check that the PostgreSQL service
 is running, and that the host, port, user and password in `DATABASE_URL` are correct. The real error is in the
 API's log, not in the response (the response deliberately hides internals).
 
@@ -375,7 +398,7 @@ Read the wording, because the three states mean different things. "API unreachab
 all: the server is stopped, or (in development) only the dashboard is running and the API on port 8000 is not. "API is
 up, database unavailable" means the API answered with a 503: PostgreSQL is down or `DATABASE_URL` is wrong. A section
 showing "The API returned an error (HTTP 422)" means the request itself was rejected, and the message says why.
-The sections reload by themselves once `/health` is green again.
+The sections reload by themselves once the status light is green again.
 
 **"Opening `http://127.0.0.1:8000/` shows `{"detail":"Not Found"}` instead of the dashboard."**
 The dashboard has not been built, or the server was started before it was. Run `npm run build` inside `frontend/`, then

@@ -41,6 +41,35 @@
           }
         },
         {
+          "name": "Database health check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('database is reachable', function () {",
+                  "    pm.expect(pm.response.json().database).to.eql('reachable');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/db",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "db"]
+            }
+          }
+        },
+        {
           "name": "List products (limit 5)",
           "event": [
             {

@@ -41,7 +41,8 @@ describe('when the API is down', () => {
 
 describe('when the API is up but its database is down', () => {
   it('tells that apart from the API being down', async () => {
-    stubFetch(() => jsonResponse({ detail: 'Database unavailable' }, 503))
+    // The API itself answers /health (it never looks at the database), but the database route and every data route say 503.
+    stubFetch((url) => (url === '/health' ? jsonResponse({ status: 'ok' }) : jsonResponse({ detail: 'Database unavailable' }, 503)))
     render(<App />)
 
     expect(await screen.findByText('API is up, database unavailable')).toBeInTheDocument()

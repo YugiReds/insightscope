@@ -5,7 +5,9 @@ Then open http://127.0.0.1:8000/docs for the interactive API page.
 """
 import logging
 import pathlib  # a module import, because "Path" below is FastAPI's Path (for route parameters)
+import threading
 import time
+from contextlib import asynccontextmanager
 from datetime import date
 
 from fastapi import FastAPI, HTTPException, Path, Query, Request
@@ -18,17 +20,61 @@ from sqlalchemy.exc import SQLAlchemyError
 import analytics
 import insights
 import reports
-from db import active_ingredients, get_engine, packages, products, recall_ndcs, recalls
+from db import active_ingredients, get_engine, metadata, packages, products, recall_ndcs, recalls, recalls_metadata
 from schemas import (
-    Health, LabelerCount, MonthlyRecalls, ProductDetail, ProductPage, ProductRecallPage, ProductSummary,
+    DatabaseHealth, Health, LabelerCount, MonthlyRecalls, ProductDetail, ProductPage, ProductRecallPage, ProductSummary,
     ReasonCategories, RecallDetail, RecallPage, SpikeInsights, SpikeReport,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("insightscope")
 
-app = FastAPI(title="InsightScope", description="Drug product data from the openFDA NDC directory")
 engine = get_engine()  # one engine (connection pool) shared by every request
+
+
+def initialize_database(target=None):
+    """Create every table that does not exist yet, so a brand-new EMPTY database (for example a fresh Neon one) works.
+
+    It is safe to run on every start: it only creates what is missing and never drops, changes or empties anything.
+    The tables stay empty until ingest.py and ingest_recalls.py load the data.
+      * metadata and recalls_metadata hold the products and recalls tables (defined in db.py)
+      * insight_cache (the saved AI summaries) is not in any metadata, by design, so it is created with its own SQL
+    """
+    target = target or engine
+    metadata.create_all(target)
+    recalls_metadata.create_all(target)
+    with target.begin() as conn:
+        conn.execute(insights.CREATE_CACHE_SQL)
+
+
+def prepare_database(attempts=5, pause=time.sleep):
+    """initialize_database, retried a few times, and it NEVER raises.
+
+    Neon may be asleep when the API starts and take a few seconds to wake. If the database cannot be reached, the API
+    must still start and answer /health, so this logs a warning and carries on instead of crashing. Returns True once
+    the tables are ready.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            initialize_database()
+            log.info("Database tables are ready")
+            return True
+        except SQLAlchemyError as error:
+            log.warning("Could not prepare the database tables (attempt %d of %d): %s", attempt, attempts, error.__class__.__name__)
+            if attempt < attempts:
+                pause(attempt * 3)
+    log.error("Gave up preparing the database tables. /health/db shows whether the database can be reached.")
+    return False
+
+
+@asynccontextmanager
+async def lifespan(application):
+    # Done in a background thread so a slow or sleeping database never delays startup: /health must answer at once.
+    threading.Thread(target=prepare_database, daemon=True).start()
+    yield
+
+
+app = FastAPI(title="InsightScope", description="Drug product data from the openFDA NDC directory", lifespan=lifespan)
 
 # The NDC table has several label versions per NDC (see CLAUDE.md). Every endpoint that counts or
 # looks up by NDC reads from this "latest" view: one row per NDC, the one with the newest
@@ -70,10 +116,18 @@ async def database_error(request: Request, exc: SQLAlchemyError):
 
 @app.get("/health", response_model=Health)
 def health():
-    """Checks that the API is up and can reach the database."""
+    """Is the API process up? Answers at once and never touches the database. Render's health check calls this every
+    few seconds, and a database call each time would stop Neon from ever going to sleep."""
+    return Health(status="ok")
+
+
+@app.get("/health/db", response_model=DatabaseHealth)
+def health_db():
+    """Is the API's database reachable? Runs a trivial query. If the database is down, the 503 handler above answers
+    {"detail": "Database unavailable"}."""
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
-    return Health(status="ok", database="reachable")
+    return DatabaseHealth(status="ok", database="reachable")
 
 
 @app.get("/products", response_model=ProductPage)

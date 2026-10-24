@@ -8,17 +8,53 @@ from sqlalchemy import (
 )
 
 # Read DATABASE_URL from the .env file into environment variables.
+# load_dotenv() does NOT override a variable that is already set in the real environment (its `override` setting
+# is off by default). So a DATABASE_URL set in the shell (for example in PowerShell, to run ingest.py against Neon)
+# or by Render wins over the value in .env, and .env is only the fallback for local development.
 load_dotenv()
+
+# The three ways a Postgres address is commonly written. Neon and Render show postgresql://, older tools and
+# some hosts give postgres://, and SQLAlchemy needs the driver named: postgresql+psycopg://.
+_ACCEPTED_SCHEMES = ("postgres://", "postgresql://", "postgresql+psycopg://")
+_DRIVER_SCHEME = "postgresql+psycopg://"
+
+
+def normalize_database_url(url):
+    """Turn any accepted way of writing a Postgres address into the one form SQLAlchemy needs (postgresql+psycopg://).
+
+    Only the scheme (the part before "://") is changed. Everything after it is kept exactly as written: the user,
+    password, host, database name and every ?query parameter, such as Neon's ?sslmode=require&channel_binding=require.
+    The error message never repeats the address, because it contains the password.
+    """
+    cleaned = (url or "").strip()
+    for scheme in _ACCEPTED_SCHEMES:
+        if cleaned.startswith(scheme):
+            return _DRIVER_SCHEME + cleaned[len(scheme):]
+    shown = cleaned.split("://", 1)[0] + "://" if "://" in cleaned else "(no scheme)"
+    raise ValueError(
+        "DATABASE_URL must start with postgres://, postgresql:// or postgresql+psycopg:// "
+        f"but it starts with {shown}"
+    )
 
 
 def get_engine():
-    url = os.environ["DATABASE_URL"]
-    # We use the psycopg v3 driver; SQLAlchemy needs the scheme to say so.
-    if url.startswith("postgresql://"):
-        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
-    elif url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql+psycopg://", 1)
-    return create_engine(url)
+    """The connection pool for the database named in DATABASE_URL.
+
+    Neon (the hosted Postgres) suspends its compute when it is idle and then drops the connections we were holding.
+    A pooled connection that has died would make the next request fail, so:
+      * pool_pre_ping=True tests each connection with a tiny query before using it, and quietly replaces a dead one
+      * pool_recycle=300 replaces any connection older than 5 minutes, so we never keep one for long enough to be dropped
+      * connect_timeout=10 stops a request waiting forever if the database cannot be reached at all
+    """
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        raise RuntimeError("DATABASE_URL is not set. Put it in .env (local) or in the environment (Render, or your shell).")
+    return create_engine(
+        normalize_database_url(url),
+        pool_pre_ping=True,
+        pool_recycle=300,
+        connect_args={"connect_timeout": 10},
+    )
 
 
 metadata = MetaData()

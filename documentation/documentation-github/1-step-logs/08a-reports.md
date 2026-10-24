@@ -84,7 +84,7 @@ Restart your API if it isn't running with `--reload`, or the `/reports` endpoint
 
 | Commit | Message |
 | --- | --- |
-| *(pending)* | Add CSV reports and printable PDF report, with tests |
+| `6c2e8b1` | Add CSV reports and printable PDF report, with tests; step 8a docs |
 
 ## Interview lines
 

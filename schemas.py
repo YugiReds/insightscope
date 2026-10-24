@@ -55,7 +55,12 @@ class LabelerCount(BaseModel):
 
 
 class Health(BaseModel):
+    """GET /health: is the API process itself up? It never touches the database."""
     status: str
+
+
+class DatabaseHealth(Health):
+    """GET /health/db: the API is up AND its database answers a trivial query."""
     database: str
 
 

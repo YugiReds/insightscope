@@ -47,16 +47,31 @@ def repeated_ndc(db):
 def test_health_ok():
     r = client.get("/health")
     assert r.status_code == 200
+    assert r.json() == {"status": "ok"}      # just "the API is up": it does not look at the database
+
+
+def test_health_db_ok():
+    r = client.get("/health/db")
+    assert r.status_code == 200
     assert r.json() == {"status": "ok", "database": "reachable"}
 
 
-def test_health_returns_503_when_database_is_down(monkeypatch):
+def test_health_db_returns_503_when_database_is_down(monkeypatch):
     # Point the app at a database that does not exist: the API should answer 503, not crash.
     dead = create_engine("postgresql+psycopg://nobody:nopass@127.0.0.1:1/none", connect_args={"connect_timeout": 2})
     monkeypatch.setattr(main, "engine", dead)
-    r = client.get("/health")
+    r = client.get("/health/db")
     assert r.status_code == 503
     assert r.json() == {"detail": "Database unavailable"}
+
+
+def test_health_still_answers_when_the_database_is_down(monkeypatch):
+    # The whole point of keeping /health away from the database: a dead database must not make the API look dead.
+    dead = create_engine("postgresql+psycopg://nobody:nopass@127.0.0.1:1/none", connect_args={"connect_timeout": 2})
+    monkeypatch.setattr(main, "engine", dead)
+    r = client.get("/health")
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok"}
 
 
 # --- products list ---
