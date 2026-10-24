@@ -7,18 +7,40 @@
 ## 1. Reading the password safely
 
 ```python
-from dotenv import load_dotenv
 load_dotenv()
 
 def get_engine():
-    url = os.environ["DATABASE_URL"]
-    ...
-    return create_engine(url)
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        raise RuntimeError("DATABASE_URL is not set. ...")
+    return create_engine(
+        normalize_database_url(url),
+        pool_pre_ping=True,
+        pool_recycle=300,
+        connect_args={"connect_timeout": 10},
+    )
 ```
 
-- `load_dotenv()` reads `.env` into environment variables.
-- `os.environ["DATABASE_URL"]` grabs the connection string by name. The password itself is never written in the code.
-- `create_engine(url)` builds the **engine**: a pool of database connections the rest of the code borrows from.
+- `load_dotenv()` reads `.env` into environment variables, but **doesn't override** one that's already set. So a `DATABASE_URL` set in PowerShell (to load data into Neon) or by Render wins, and `.env` is only the local fallback.
+- `os.environ.get("DATABASE_URL")` grabs the connection string by name. The password itself is never written in the code.
+- `create_engine(...)` builds the **engine**: a pool of database connections the rest of the code borrows from.
+
+| Setting | Why (added in step 8b for Neon) |
+| --- | --- |
+| `pool_pre_ping=True` | Tests each connection with a tiny query before using it, and quietly replaces a dead one. Neon drops connections when it sleeps |
+| `pool_recycle=300` | Replaces any connection older than 5 minutes |
+| `connect_timeout=10` | A request gives up after 10 seconds instead of hanging if the database can't be reached |
+
+## 1b. Fixing the address format (`normalize_database_url`)
+
+```python
+_ACCEPTED_SCHEMES = ("postgres://", "postgresql://", "postgresql+psycopg://")
+_DRIVER_SCHEME = "postgresql+psycopg://"
+```
+
+Neon shows `postgresql://...`, older hosts use `postgres://`, and SQLAlchemy needs the driver named (`postgresql+psycopg://`). This function swaps only the part before `://` and keeps everything after it, including `?sslmode=require&channel_binding=require`.
+
+If the value starts with anything else, it raises `ValueError: DATABASE_URL must start with ... but it starts with (no scheme)`. The message **never repeats the address**, because it contains the password. (This exact error happened in step 8b when a command got pasted instead of the URL.)
 
 ## 2. Defining a table
 
@@ -63,6 +85,10 @@ active_ingredients = Table(
 ## Why there are two registries (`metadata` and `recalls_metadata`)
 
 A **registry** is a list of tables that can be created or dropped together. `ingest.py` drops and recreates everything in `metadata`. If recalls were in the same list, reloading the drugs would silently wipe the recalls. So recalls have their own list, and each loader only touches its own tables.
+
+## Who creates the tables on an empty database
+
+On startup, `main.py` calls `metadata.create_all` and `recalls_metadata.create_all` (plus the `insight_cache` SQL). That only creates tables that are **missing**; it never drops or empties anything. That's how the fresh Neon database got its tables before any data was loaded.
 
 ## If you change this file
 

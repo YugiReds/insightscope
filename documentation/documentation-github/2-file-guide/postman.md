@@ -1,6 +1,6 @@
 # `postman/insightscope.postman_collection.json`: the Postman collection
 
-**Job:** a saved set of 30 API requests, each with a test script, that you can run in Postman with one click.
+**Job:** a saved set of 31 API requests, each with a test script, that you can run in Postman with one click.
 
 **This JSON file is the source of truth.** Postman also writes its own YAML copies under `postman/collections/` and `postman/globals/`; those are no longer tracked by Git (they're in `.gitignore`).
 
@@ -12,7 +12,7 @@ InsightScope API
 └── Error cases  (requests that should fail on purpose: 404, 422)
 ```
 
-One collection variable: `baseUrl = http://127.0.0.1:8000`. Every request is written as `{{baseUrl}}/...`, so pointing the collection at a deployed server later means changing one value.
+One collection variable: `baseUrl = http://127.0.0.1:8000`. Every request is written as `{{baseUrl}}/...`, so pointing the collection at the live server means changing one value: set `baseUrl` to `https://insightscope.onrender.com` (open the site first if it's been idle, so it's awake).
 
 ## A test script
 
@@ -36,7 +36,7 @@ pm.test("error body has a detail list", function () {
 
 | Group | Count | Examples |
 | --- | --- | --- |
-| Happy path | Products, search, labelers, recalls, N/A recall, analytics, AI spike insights, recalls CSV, spikes CSV | `GET /products/76961-101`, `GET /analytics/recalls/spikes` |
+| Happy path | Database health check (`/health/db`), products, search, labelers, recalls, N/A recall, analytics, AI spike insights, recalls CSV, spikes CSV | `GET /products/76961-101`, `GET /analytics/recalls/spikes` |
 | Error cases | Unknown NDC 404, short search 422, limit 500 422, unknown recall 404, malformed NDC 422, backwards date range 422, invalid date 422, recalls CSV backwards range 422, recalls CSV invalid date 422 | `GET /products/0000-0000` |
 
 ## How to run

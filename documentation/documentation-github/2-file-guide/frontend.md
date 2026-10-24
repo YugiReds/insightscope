@@ -69,7 +69,7 @@ In dev mode the browser asks Vite (port 5173) for `/recalls`, and Vite forwards 
 ## `hooks.js`: loading data and the status light
 
 - `useApi(path)` loads one endpoint and returns `{ data, error, loading, reload }`. While it reloads, the old data stays on screen, so the page doesn't flash.
-- `useHealth()` calls `/health` every 15 seconds and reports `ok`, `db-down` (503) or `api-down` (no answer).
+- `useHealth()` calls `/health` every 15 seconds. It asks `/health/db` only at the start, at most once a minute, never while the tab is hidden, and right after the API recovers. It reports `ok`, `db-down` (`/health/db` answered 503) or `api-down` (no answer). The throttle exists so a forgotten tab can't keep the Neon database awake (step 8b).
 
 ## `App.jsx`: the page
 

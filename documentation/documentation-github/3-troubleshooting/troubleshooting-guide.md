@@ -61,7 +61,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 ### "connection refused" / "could not connect to server" / every API request returns 503
 - **Why:** the PostgreSQL service isn't running.
-- **Fix:** open **Services** (Win+R → `services.msc`), find **postgresql-x64-18**, and click **Start**. Then check `GET /health`.
+- **Fix:** open **Services** (Win+R → `services.msc`), find **postgresql-x64-18**, and click **Start**. Then check `GET /health/db` (plain `/health` no longer touches the database).
 
 ### "database "insightscope" does not exist"
 - **Fix:**
@@ -256,10 +256,11 @@ psql -U postgres -d insightscope -c "DELETE FROM insight_cache;"
 ### The status light says "API unreachable" and a red banner appears
 - **Why:** FastAPI isn't running on port 8000. In dev mode Vite forwards API calls there.
 - **Fix:** start uvicorn in a second terminal. The sections reload by themselves within about 15 seconds.
+- **On the live site, while the numbers and charts still load:** the API is fine. A browser extension is blocking the status check. See "Live site says API unreachable in one browser only" in section 10.
 
 ### The status light says "API is up, database unavailable"
-- **Why:** the API answered 503: PostgreSQL is stopped.
-- **Fix:** see "connection refused" in section 2.
+- **Why:** `/health/db` answered 503: PostgreSQL is stopped (locally) or Neon can't be reached (live).
+- **Fix:** locally, see "connection refused" in section 2. On the live site, open `/health/db` directly and check Neon's dashboard.
 
 ### `http://127.0.0.1:8000/` shows JSON `{"detail":"Not Found"}` instead of the dashboard
 - **Why:** the dashboard isn't built, or uvicorn started before the first build. `main.py` only mounts `frontend/dist/` if it existed at startup.
@@ -343,3 +344,58 @@ If it prints nothing, add it back: `Add-Content .gitignore ".env"`. If `.env` wa
 ### Unexpected folders appear in `git status` (`.vscode/`, `.postman/`, `New Collection/`) (hit)
 - **Why:** tools create their own folders.
 - **Fix:** add them to `.gitignore` before committing, e.g. `Add-Content .gitignore ".vscode/"`.
+
+---
+
+## 10. Deploy (Render and Neon)
+
+### The first visit to the live site takes up to a minute
+- **Why:** the free Render service sleeps after 15 minutes with no visitors, and Neon suspends an idle database. Render shows a loading page while it wakes.
+- **Fix:** nothing to fix; that's the free tier. Open the site a minute before a demo or interview.
+
+### `ValueError: DATABASE_URL must start with postgres://, postgresql:// ... but it starts with (no scheme)` (hit)
+- **Why:** whatever is in `DATABASE_URL` isn't a connection string. In step 8b the clipboard still held the `uvicorn` command, so that got pasted at the `Read-Host` prompt. Snippet views in Neon (`psql '...'` or `DATABASE_URL=...`) cause the same error.
+- **Fix:** copy only the plain string from Neon (`postgresql://` to `channel_binding=require`), run `$env:DATABASE_URL = Read-Host "Paste Neon URL"`, paste **at the prompt**, then check without showing the password:
+
+```powershell
+$env:DATABASE_URL.Substring(0, 15)
+```
+
+It should print `postgresql://in`.
+
+### The `Read-Host` prompt shows your URL followed by `:` and waits (hit)
+- **Why:** the URL was typed into the command in place of the words `"Paste Neon URL"`, so PowerShell used it as the question text. The password is now on screen and in the command history.
+- **Fix:** press Ctrl+C, **reset the password in Neon**, and run the command exactly as written, pasting only after the prompt appears.
+
+### You shared the database connection string (hit)
+- **Why:** the string contains the password (the part after `insightscope_owner:` and before `@`).
+- **Fix:** in Neon, **Postgres database → Roles → ⋮ beside `insightscope_owner` → Reset password**. Copy the new string from **Connect**, then update it in Render (**Environment** → `DATABASE_URL`) and redeploy. Deleting the message doesn't undo a leak; changing the password does.
+
+### `localhost refused to connect` on port 8001
+- **Why:** nothing is listening, because uvicorn crashed or was stopped. It's not a database problem.
+- **Fix:** look at the terminal. Fix the error shown there, start uvicorn again and wait for `Uvicorn running on http://127.0.0.1:8001`.
+
+### Render says "No repositories found"
+- **Why:** Render is signed in to GitHub but hasn't been given access to any repository.
+- **Fix:** click **GitHub** (or **Configure account**) and choose **Only select repositories** → `insightscope`.
+
+### The Render build fails with "vite: not found"
+- **Why:** Vite is a development dependency and `npm ci` skipped it.
+- **Fix:** the build command must use `npm ci --include=dev` (it already does in `render.yaml`).
+
+### Live site says "API unreachable" in one browser only (hit)
+- **Why:** a browser extension blocks or rewrites the status-check request. In step 8b it was **SimplyCodes** in Opera; Chrome, the phone and an Opera private window were all green.
+- **How to tell:** the numbers and charts still load (they come from the same API), only the badge is red.
+- **Fix:** open the site in a private window (extensions off). If it's green there, limit that extension's site access or remove it. Turning off Opera's ad blocker didn't help here.
+
+### The live site shows no data, or an error, after a deploy
+- **Why:** usually `DATABASE_URL` in Render is wrong (pooled string, quotes, `psql` prefix) or the password was reset in Neon but not updated in Render.
+- **Fix:** open `https://insightscope.onrender.com/health/db`. A 503 means the database can't be reached; fix `DATABASE_URL` in Render → **Environment** and redeploy. Check Render's **Logs** for `Database tables are ready`.
+
+### AI summaries on the live site are all "Template"
+- **Why:** `HF_TOKEN` is missing or wrong in Render, or the token lacks "Make calls to Inference Providers".
+- **Fix:** create a new fine-grained token with that one permission and paste it into Render → **Environment** → `HF_TOKEN`. Summaries already saved in Neon's `insight_cache` don't need the AI again.
+
+### A pushed change doesn't appear on the live site
+- **Why:** Render is still building (a few minutes), or the build failed.
+- **Fix:** Render → the service → **Events**. A failed deploy keeps the old version running; open its log to see why.

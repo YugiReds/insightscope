@@ -45,7 +45,7 @@ If a field were required and a real record had it empty, the API would crash wit
 | Group | Models |
 | --- | --- |
 | Products | `Ingredient`, `Package`, `ProductSummary`, `ProductDetail`, `ProductPage`, `LabelerCount` |
-| Health | `Health` |
+| Health | `Health` (`/health`: just `status`), `DatabaseHealth` (`/health/db`: `status` plus `database`) |
 | Recalls | `RecallSummary`, `RecallDetail`, `RecallPage`, `ProductRecallPage` |
 | Insights | Spike facts plus `summary`, `source` (`ai` or `template`) and `fallback_reason` |
 | Analytics | `Coverage`, `MonthlyRecallCount`, `MonthlyRecalls`, `CategoryCount`, `OtherReason`, `ReasonCategories`, `ReasonTotal`, `FirmTotal`, `Spike`, `SpikeReport` |

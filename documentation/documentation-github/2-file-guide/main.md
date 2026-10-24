@@ -4,6 +4,17 @@
 
 **Start it:** `.\venv\Scripts\python.exe -m uvicorn main:app --reload`, then open http://127.0.0.1:8000/docs.
 
+**Live:** Render starts it with `uvicorn main:app --host 0.0.0.0 --port $PORT` (from `render.yaml`) at https://insightscope.onrender.com.
+
+## Why there are two health checks
+
+| Route | Question it answers | Who calls it |
+| --- | --- | --- |
+| `/health` | Is the API process alive? | Render every few seconds; the status light every 15 seconds |
+| `/health/db` | Can the API reach its database? | The status light, at most once a minute |
+
+If Render's frequent pings ran a database query, Neon would never sleep and the free compute hours would run out. In interview terms: a **liveness** check vs. a **dependency** check.
+
 ## Top of the file: setup
 
 ```python
@@ -16,6 +27,30 @@ engine = get_engine()  # one engine (connection pool) shared by every request
 
 - `app` is the API itself. `uvicorn main:app` points at this line.
 - `engine` comes from `db.py` and is shared by all endpoints.
+- `lifespan=lifespan` runs the table setup below when the app starts.
+
+## Creating the tables at startup (step 8b)
+
+```python
+def prepare_database(attempts=5, pause=time.sleep):
+    for attempt in range(1, attempts + 1):
+        try:
+            initialize_database()
+            log.info("Database tables are ready")
+            return True
+        except SQLAlchemyError as error:
+            log.warning("Could not prepare the database tables (attempt %d of %d): %s", ...)
+            ...
+
+@asynccontextmanager
+async def lifespan(application):
+    threading.Thread(target=prepare_database, daemon=True).start()
+    yield
+```
+
+- `initialize_database()` creates every **missing** table, including `insight_cache`. It never drops or empties anything, so it's safe on every start.
+- It runs in a **background thread**, so a sleeping Neon database never delays startup, and `/health` answers at once.
+- It retries 5 times (waiting 3, 6, 9... seconds) and never crashes the app. The log line `Database tables are ready` is how you know it worked, on your PC or on Render.
 
 ## The "latest version" view (the duplicate-NDC rule)
 
@@ -93,7 +128,8 @@ offset: int = Query(0, ge=0),
 
 | Endpoint | Function's job |
 | --- | --- |
-| `GET /health` | Runs `SELECT 1` to prove the database answers |
+| `GET /health` | Answers `{"status":"ok"}` at once; **never touches the database** (Render pings it every few seconds) |
+| `GET /health/db` | Runs `SELECT 1`; `{"status":"ok","database":"reachable"}`, or 503 if the database is down |
 | `GET /products` | Filtered, paged list from `latest` |
 | `GET /products/{ndc}` | One product plus ingredients and packages |
 | `GET /stats/labelers` | `GROUP BY` labeler, most products first |

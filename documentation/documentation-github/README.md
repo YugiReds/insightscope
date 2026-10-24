@@ -21,13 +21,13 @@ This folder explains the whole project in plain language: what was built, step b
 | [6. AI insights](1-step-logs/06-ai-insights.md) | AI-written summaries of each spike, fact-checked (Hugging Face) | Done |
 | [7. Dashboard](1-step-logs/07-dashboard.md) | React page with charts, spike summaries, NDC lookup and a live status light | Done |
 | [8a. Reports](1-step-logs/08a-reports.md) | CSV downloads and a printable PDF report | Done |
-| 8b. Deploy | A live link (Render + hosted PostgreSQL) | Next |
+| [8b. Deploy](1-step-logs/08b-deploy.md) | Live at https://insightscope.onrender.com (Render + Neon PostgreSQL) | Done |
 
 Setup is step 0 so the numbers match the ones used in `CLAUDE.md`, the README and the Claude Code prompts.
 
 ## How this folder stays current
 
-After each step finishes, its log gets filled in, the file guide gets entries for any new or changed files, and the troubleshooting guide gets any new problems we hit. A new step gets a new log file (`08b-deploy.md`, and so on).
+After each step finishes, its log gets filled in, the file guide gets entries for any new or changed files, and the troubleshooting guide gets any new problems we hit. A new step gets a new log file (`08b-deploy.md`, `09-...md`, and so on).
 
 This Markdown version lives in `documentation/documentation-github/` (committed to GitHub). The same files as PDFs live in `documentation/documentation/` (kept on your PC only, ignored by Git).
 

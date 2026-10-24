@@ -11,5 +11,6 @@ The full guide is in [troubleshooting-guide.md](troubleshooting-guide.md), group
 7. Tests and Postman
 8. Dashboard (npm, Vite, the page)
 9. Git and GitHub
+10. Deploy (Render and Neon)
 
 Entries marked **(hit)** are problems that actually happened while building the project.

@@ -15,11 +15,15 @@ PostgreSQL database  ◄── db.py (connection + table definitions, reads .env
 Clients: the dashboard (frontend/, served by main.py at /), your browser (/docs), Postman, the tests
 ```
 
+**Live:** the same code runs on Render (`render.yaml`) at https://insightscope.onrender.com, with the database on Neon. Locally, `DATABASE_URL` comes from `.env`; on Render it's a secret set in Render's settings.
+
 ## The files
 
 | File | One-line job | Guide |
 | --- | --- | --- |
 | `.env` | Holds the database password (never on GitHub) | [config-files.md](config-files.md) |
+| `.env.example` | Fake placeholders showing what `.env` looks like (safe to commit) | [config-files.md](config-files.md) |
+| `render.yaml` | The Render Blueprint: how the live site is built and started | [config-files.md](config-files.md) |
 | `.gitignore` | Tells Git what never to save | [config-files.md](config-files.md) |
 | `requirements.txt` | The list of Python packages | [config-files.md](config-files.md) |
 | `pytest.ini` | Settings for the tests | [config-files.md](config-files.md) |
