@@ -26,14 +26,20 @@ load_dotenv()
 
 HF_URL = "https://router.huggingface.co/v1/chat/completions"   # Hugging Face's OpenAI-style hosted inference API
 # A small instruction-tuned model that Hugging Face lists on four different providers (so one provider being down
-# does not take it offline). NOT VERIFIED: the account used to build this had no inference credits (HTTP 402), so
-# no model could be tested. Run `python insights.py` once credits exist to check it. Override with HF_MODEL.
+# does not take it offline). Checked on 2026-10-24 against the real service: all 6 real spikes passed the guardrail in
+# 3 separate runs, about 3 seconds for all six. google/gemma-3-4b-it also passed 6/6 (about 8 seconds), and
+# Qwen/Qwen3-4B-Instruct-2507 passed 6/6 but was the slowest (about 25 seconds) and has a single provider.
+# Override with HF_MODEL, and re-check with `python insights.py` after changing it.
 DEFAULT_MODEL = "meta-llama/Llama-3.1-8B-Instruct"
 MODEL = os.environ.get("HF_MODEL", DEFAULT_MODEL)
 AI_TIMEOUT_SECONDS = 20
 MAX_TOKENS = 220
 MAX_SUMMARY_CHARS = 700
-PROMPT_VERSION = 1       # change this when the prompt changes, so old cached summaries are not reused
+PROMPT_VERSION = 3       # change this when the prompt changes, so old cached summaries are not reused
+# Version history: 1 = first prompt. 2 = added the rules against linking a firm to a reason and against saying
+# "products" when the facts count recalls (real version-1 summaries did both). 3 = firm and reasons in separate
+# sentences, "accounts for" never "responsible for", no calculated figures, no "the FDA reported" (version 2 still
+# produced all of these). "products"/"items" is now also rejected by a code check, not only asked for in the prompt.
 
 # How strongly one firm drove a spike, as the share of that month's recalls its recalls make up.
 ONE_FIRM_PERCENT = 50
@@ -100,7 +106,15 @@ def facts_text(facts):
 SYSTEM_PROMPT = (
     "You write short plain-English summaries of FDA drug recall spikes for a support team. "
     "Use ONLY the facts you are given. Do not add any facts, causes, names, dates or numbers that are not in the facts. "
-    "Quote numbers exactly as written. Say clearly who drove the spike, using the sentence about the largest firm. "
+    "Quote numbers exactly as written. Do not calculate anything: no percentages, differences, increases or ratios "
+    "except the ones written in the facts. "
+    "Say clearly who drove the spike, using the sentence about the largest firm, and say a firm 'accounts for' a share "
+    "of the recalls, never that it is 'responsible for' or 'caused' anything. "
+    "The facts list the top reasons and the top firms separately and never say which firm had which reason, so do not "
+    "link a firm to a reason, and do not say a firm's recalls were 'due to', 'because of' or 'for' any reason. "
+    "Put the largest firm and the top reasons in separate sentences. "
+    "Always say 'recalls', never 'products' or 'items', because the facts count recalls. "
+    "Do not say who reported the recalls: do not write 'the FDA reported'. Just say how many recalls there were. "
     "Write 2 or 3 sentences, with no lists and no markdown."
 )
 
@@ -118,8 +132,21 @@ _NUMBER = re.compile(r"\d+(?:,\d{3})*(?:\.\d+)?")
 _VAGUE_QUANTITY = re.compile(r"\b(hundreds?|thousands?|millions?|dozens?)\b", re.IGNORECASE)
 
 
+# The facts count RECALLS. Calling them "products" or "items" changes what the numbers mean.
+_WRONG_NOUN = re.compile(r"\b(products?|items?)\b", re.IGNORECASE)
+
+
 def _numbers_in(value):
     return [(match, float(match.replace(",", ""))) for match in _NUMBER.findall(value)]
+
+
+def _without_names(summary, facts):
+    """The summary with the firm and category names taken out, so a word inside a real name
+    (for example the firm 'Acme Products Inc.') is not mistaken for the model saying 'products'."""
+    names = [f["recalling_firm"] for f in facts["top_recalling_firms"]] + [r["category"] for r in facts["top_reason_categories"]]
+    for name in sorted(names, key=len, reverse=True):
+        summary = re.sub(re.escape(name), " ", summary, flags=re.IGNORECASE)
+    return summary
 
 
 def check_summary(summary, facts):
@@ -135,6 +162,9 @@ def check_summary(summary, facts):
     vague = _VAGUE_QUANTITY.search(summary)
     if vague:
         return f"it states a quantity without a number ('{vague.group(0)}')"
+    wrong_noun = _WRONG_NOUN.search(_without_names(summary, facts))
+    if wrong_noun:
+        return f"it calls recalls '{wrong_noun.group(0).lower()}', but the facts count recalls"
     return None
 
 

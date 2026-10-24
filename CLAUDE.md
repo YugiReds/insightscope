@@ -55,14 +55,16 @@ only the row with the latest `marketing_start_date` for each NDC, otherwise it w
 
 ## AI summary rules (insights.py)
 - `HF_TOKEN` lives in `.env`. Never print it, log it, or put it in an error message (`AIError` messages are written to be safe). No extra package: the client uses `requests` against `https://router.huggingface.co/v1/chat/completions`.
-- The AI only rephrases facts our code computed. The guardrail (`check_summary`) rejects any number not in the facts text (and vague words like "hundreds"), and then the template (`template_summary`) is used. Every result carries `source` ("ai" or "template") and `fallback_reason`. Do not weaken the guardrail to get more AI output.
+- The AI only rephrases facts our code computed. The guardrail (`check_summary`) rejects any number not in the facts text, vague words like "hundreds", and "products"/"items" used for the recalls (names of firms and categories are excluded from that check), and then the template (`template_summary`) is used. Every result carries `source` ("ai" or "template") and `fallback_reason`. Do not weaken the guardrail to get more AI output.
 - After the first failed AI call in a request, the remaining spikes skip the AI (one outage = one timeout).
 - Cache = Postgres table `insight_cache` (created on first use with `CREATE TABLE IF NOT EXISTS`, not in any MetaData, so reloads never wipe it). Key = hash of prompt version + model + facts. Only validated AI summaries are cached. Bump `PROMPT_VERSION` when the prompt changes.
 - Tests must NEVER call the real AI: `tests/test_insights.py` has an autouse fixture that makes any real `requests.post` fail, uses a fake client, and uses a TEMP `insight_cache`. Keep it that way.
-- The default model (`meta-llama/Llama-3.1-8B-Instruct`) is UNVERIFIED: the account had no inference credits (HTTP 402) when it was built. After adding credits, run `.\venv\Scripts\python.exe insights.py` and check the real summaries before relying on them.
+- The default model (`meta-llama/Llama-3.1-8B-Instruct`) was checked on 2026-10-24: 6/6 real spikes passed the guardrail in 3 runs (about 3 s for all six). After changing the model or prompt, re-check with `.\venv\Scripts\python.exe insights.py`.
+- KNOWN LIMIT: the guardrail checks numbers, not claims. A model can link two separate facts (e.g. a firm and a reason) into a statement the facts never make. Fixing that means tightening the prompt and bumping `PROMPT_VERSION`, not loosening the guardrail. `PROMPT_VERSION` is 3. Version 1 linked a firm to a reason and said "products". Version 2 still put reasons and a firm in one sentence, wrote "the FDA reported" (10 of 24 samples) and sometimes computed its own figures. Version 3 forbids all of that (24 of 24 real samples were clean). The guardrail still cannot catch true-but-derived statements (e.g. "the majority of the recalls"), repetition, or "significant spike" being read as statistical.
+- Changing the prompt: bump `PROMPT_VERSION`, run `.\venv\Scripts\python.exe insights.py`, and read every summary against its facts. Old cache rows stay in `insight_cache` but are never used again.
 
 ## Commands
-- Run the tests: `.\venv\Scripts\python.exe -m pytest` (136 tests in `tests/`, most run against the real database).
+- Run the tests: `.\venv\Scripts\python.exe -m pytest` (143 tests in `tests/`, most run against the real database).
 - Run the API: `.\venv\Scripts\python.exe -m uvicorn main:app --reload`, then open http://127.0.0.1:8000/docs.
 - Load data: `.\venv\Scripts\python.exe ingest.py` (drops and recreates the tables each run, so it is safe to re-run).
 - Load recalls: `.\venv\Scripts\python.exe ingest_recalls.py [number_of_records]` (default 10,000 newest by `report_date`; safe to re-run).

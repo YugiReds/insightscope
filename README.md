@@ -99,7 +99,9 @@ written) and lists the most common reasons nothing matched, so you can tell when
 2. **The AI only writes it up.** The prompt gives the model those facts and tells it not to add any facts, causes,
    names, dates or numbers. It runs on Hugging Face's hosted inference with a small instruction-tuned model.
 3. **A guardrail checks the answer.** Every number in the AI's text must appear in the facts it was given, and
-   vague quantities like "hundreds of recalls" are rejected. One invented number and the whole AI summary is dropped.
+   vague quantities like "hundreds of recalls" are rejected. So is calling the recalls "products" or "items", because
+   the facts count recalls (a firm's own name containing the word is fine). One invented number and the whole AI
+   summary is dropped.
 4. **A template is the fallback.** If the AI is unavailable (no `HF_TOKEN`, timeout, error, no credits) or fails the
    guardrail, a plain template written from the same facts is used. The result says `source: "template"` and gives
    the `fallback_reason`. After one failed call, the other spikes in the same request skip the AI, so an outage costs
@@ -113,9 +115,21 @@ written) and lists the most common reasons nothing matched, so you can tell when
 No extra package is needed: it uses `requests`. Choose another model with `HF_MODEL`. Run
 `.\venv\Scripts\python.exe insights.py` to see each spike's summary, its source and any fallback reason.
 
-**Status.** The AI path is covered by tests that use a fake AI and never touch the network. The Hugging Face account
-used to build this had no inference credits (HTTP 402), so no real model has been verified yet, and until credits
-exist the endpoint returns template summaries. Those are complete and correct, just less fluent.
+**Status.** The default model, `meta-llama/Llama-3.1-8B-Instruct`, was checked against the real service: all six
+real spikes passed the guardrail in three separate runs, taking about 3 seconds for the six. Two other small models
+also passed (`google/gemma-3-4b-it`, slower, and `Qwen/Qwen3-4B-Instruct-2507`, the slowest at about 25 seconds and
+offered by only one provider). The automated tests use a fake AI and never touch the network.
+
+**Known limits.** The guardrail checks numbers and a few banned words, not claims. A model can still join two
+separate facts into a statement the facts do not make. Prompt version 1 produced "198 of its products being recalled
+due to CGMP violations" (the facts list the top firms and the top reasons separately and never link them). Version 2
+still put the top reasons and the top firm in one sentence, wrote "the FDA reported" in 10 of 24 test summaries, and
+sometimes worked out its own figures (for example a "304% increase", which the number check rejects, so that summary
+falls back to the template). Version 3 forbids all of these, and a code check now rejects "products" and "items".
+Across 24 real version-3 summaries, none of those problems appeared.
+What the checks still cannot catch: a true but derived statement (one saved summary says CGMP violations were "the
+majority of the recalls", which is correct, 198 of 236, but is not written in the facts), repetition and awkward
+wording, and "significant spike", which can be mistaken for a statistical claim. Treat the AI summaries as drafts.
 
 ## Postman collection
 

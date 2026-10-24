@@ -117,6 +117,30 @@ def test_the_prompt_gives_the_facts_and_forbids_adding_any(conn):
     assert "mainly one firm's mass recall" in user     # our code decided that, and told the AI
 
 
+def test_the_prompt_asks_for_separate_sentences_accounts_for_and_no_calculations(conn):
+    # Version-2 summaries still put a firm and the reasons in one sentence, said "responsible for", computed their
+    # own percentages and wrote "the FDA reported". Version 3 of the prompt rules each of these out.
+    fake = FakeClient([GOOD_TEXT_A])
+    one(conn, SPIKE_A, fake)
+    system = fake.prompts[0][0]
+    assert "separate sentences" in system
+    assert "'accounts for'" in system and "never that it is 'responsible for'" in system
+    assert "Do not calculate anything" in system
+    assert "do not write 'the FDA reported'" in system
+    assert insights.PROMPT_VERSION >= 3
+
+
+def test_the_prompt_forbids_linking_a_firm_to_a_reason_and_saying_products(conn):
+    # Real summaries written with the first prompt did both. The facts never link a firm to a reason, and they
+    # count recalls, not products.
+    fake = FakeClient([GOOD_TEXT_A])
+    one(conn, SPIKE_A, fake)
+    system = fake.prompts[0][0]
+    assert "do not link a firm to a reason" in system
+    assert "never 'products' or 'items'" in system
+    assert "never say which firm had which reason" in system
+
+
 # ---------------------------------------------------------------------------------------------------------
 # The guardrail: a made-up number falls back to the template
 # ---------------------------------------------------------------------------------------------------------
@@ -141,6 +165,28 @@ def test_a_quantity_without_a_number_falls_back(conn):
     result = one(conn, SPIKE_A, FakeClient(["March 2019 saw hundreds of recalls, mainly from King Bio Inc."]))
     assert result["source"] == "template"
     assert "hundreds" in result["fallback_reason"]
+
+
+@pytest.mark.parametrize("reply, word", [
+    ("March 2019 had 535 recalls. King Bio Inc. accounts for 87% of them, which is 465 products.", "products"),
+    ("March 2019 had 535 recalls. King Bio Inc. accounts for 87% of the items.", "items"),
+    ("March 2019 had 535 Products recalled. King Bio Inc. accounts for 87%.", "products"),
+])
+def test_calling_recalls_products_or_items_falls_back(conn, reply, word):
+    # The facts count recalls. Saying "products" changes what the numbers mean, and every number here IS in the
+    # facts, so only this check can catch it.
+    result = one(conn, SPIKE_A, FakeClient([reply]))
+    assert result["source"] == "template"
+    assert word in result["fallback_reason"] and "count recalls" in result["fallback_reason"]
+
+
+def test_a_word_inside_a_real_firm_name_is_not_mistaken_for_the_wrong_noun():
+    spike = make_spike(firms=[("Acme Products Inc.", 465)])
+    facts = insights.build_facts(spike)
+    assert insights.check_summary("March 2019 had 535 recalls. Acme Products Inc. accounts for 87% of them.", facts) is None
+    # ...but the same word used about the recalls is still caught, even though a firm name contains it.
+    problem = insights.check_summary("March 2019 had 535 recalls. Acme Products Inc. accounts for 87%, or 465 products.", facts)
+    assert problem and "products" in problem
 
 
 @pytest.mark.parametrize("reply", ["", "   ", "No numbers here. " * 60])
@@ -363,6 +409,13 @@ def test_the_cache_key_depends_on_the_facts_and_the_model():
     assert insights.cache_key(facts_a, "m") != insights.cache_key(facts_a, "other")
     nudged = insights.build_facts(make_spike(recalls=536))
     assert insights.cache_key(facts_a, "m") != insights.cache_key(nudged, "m")
+
+
+def test_the_cache_key_changes_when_the_prompt_version_changes(monkeypatch):
+    facts = insights.build_facts(SPIKE_A)
+    before = insights.cache_key(facts, "m")
+    monkeypatch.setattr(insights, "PROMPT_VERSION", insights.PROMPT_VERSION + 1)
+    assert insights.cache_key(facts, "m") != before     # summaries written with an older prompt are never reused
 
 
 # ---------------------------------------------------------------------------------------------------------
