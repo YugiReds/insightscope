@@ -129,7 +129,8 @@ falls back to the template). Version 3 forbids all of these, and a code check no
 Across 24 real version-3 summaries, none of those problems appeared.
 What the checks still cannot catch: a true but derived statement (one saved summary says CGMP violations were "the
 majority of the recalls", which is correct, 198 of 236, but is not written in the facts), repetition and awkward
-wording, and "significant spike", which can be mistaken for a statistical claim. Treat the AI summaries as drafts.
+wording, summaries that run past the requested 2 or 3 sentences or leave out the usual monthly level (one saved
+summary, March 2019, does both), and "significant spike", which can be mistaken for a statistical claim. Treat the AI summaries as drafts.
 
 ## Postman collection
 
