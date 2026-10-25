@@ -274,8 +274,8 @@ oversized `limit`). Each request has a test script that checks the status code a
 To run it:
 1. Start the API (`.\venv\Scripts\python.exe -m uvicorn main:app --reload`).
 2. In Postman, choose **Import** and select the JSON file.
-3. Open the collection's **Variables** tab and check that `baseUrl` is `http://127.0.0.1:8000`. Change it to test
-   a deployed copy of the API.
+3. Open the collection's **Variables** tab and check that `baseUrl` is `http://127.0.0.1:8000`. Change it to
+   `https://insightscope.onrender.com` to test the live copy.
 4. Run one request with **Send** and read the **Test Results** tab, or run them all with
    **Run collection** (the Runner). Every test should show PASS.
 
@@ -299,26 +299,22 @@ Counting rows would overcount drugs, so every NDC lookup and count uses only the
 `marketing_start_date` (ties broken by `product_id`). The integrity checks report this as a WARN, not a failure,
 because it is expected behavior in the source data.
 
-## Running in production (not deployed yet)
+## Running in production: Render + Neon
 
-The setup above is for development: the API runs in a terminal on a laptop and stops when the terminal closes.
-This project is not deployed. In production the same code would run like this:
+The setup above is for development: the API runs in a terminal on a laptop and stops when the terminal closes. The
+live app, https://insightscope.onrender.com, runs like this:
 
-- **A server that is always on**, with the API started as a managed service (a Docker container, `systemd` or a
-  Windows service) that starts at boot and restarts automatically if it crashes.
-- **uvicorn without `--reload`**, usually with several workers, behind a reverse proxy (such as nginx) that
-  provides HTTPS and a real domain name.
-- **Secrets as environment variables** set on the server (like `DATABASE_URL`), never stored in the code.
-- **A managed PostgreSQL database** on its own server, not on the same machine as the API.
-- **The dashboard** is served by the same FastAPI process, so `npm run build` must be part of the deploy (the build
-  output is not stored in git).
-- **Health checks and logs:** a monitoring system calls `/health` (which does not touch the database) every few seconds and alerts or restarts the
-  service if it stops answering. The request log (status code and milliseconds) is where to start debugging.
+- **One Render free web service**, described by `render.yaml`. It runs `uvicorn main:app` without `--reload`. Render
+  provides HTTPS and the `onrender.com` address, and redeploys automatically on every push to GitHub.
+- **Neon managed PostgreSQL** (free), on its own server, not on the same machine as the API.
+- **Secrets as environment variables** in Render (`DATABASE_URL`, `HF_TOKEN`), never stored in the code.
+- **The dashboard** is served by the same FastAPI process. The build command runs `npm run build` on every deploy,
+  because the build output is not stored in git.
+- **Health checks:** Render calls `/health` regularly. It never touches the database, so the check does not keep Neon
+  awake. `/health/db` runs `SELECT 1` and returns 503 when the database cannot be reached: use it to tell "API down"
+  from "database down". The request log (status code and milliseconds) is where to start debugging.
 
-## Deploying to Render and Neon
-
-The live app (https://insightscope.onrender.com) runs as one free Render web service with a free Neon Postgres
-database. `render.yaml` describes the service. This is what was done:
+### How it was deployed
 
 1. **Database:** in Neon, click **Connect**, switch **Connection pooling OFF**, and copy the direct connection string
    (not the pooled one, whose host contains `-pooler`). It looks like `postgresql://user:password@host/db?sslmode=require`.
@@ -341,7 +337,12 @@ Remove-Item Env:DATABASE_URL
 ```
 
 Free-tier note: Render sleeps an idle service and Neon suspends an idle database, so the first request after a quiet
-period can take up to a minute. Render's health check uses `/health`, which does not touch the database.
+period can take up to a minute.
+
+### What a bigger production setup would add
+
+The free setup is fine for a demo. A real one would add: an always-on paid instance (no sleeping), monitoring and
+alerts on the health checks and the request log, and several uvicorn workers.
 
 ## Troubleshooting scenarios
 
