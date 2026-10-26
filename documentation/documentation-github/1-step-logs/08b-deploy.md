@@ -134,7 +134,7 @@ Claude Code changed the collection so requests read their IDs from earlier respo
 | `371bacc` | step 8b part 2: README live demo link, dashboard screenshot, deploy docs |
 | `e4a626b` | step 8b docs: deploy step log, file guides, troubleshooting |
 | `788d333` | README: production section reflects Render + Neon |
-| *(pending)* | Postman: IDs taken from earlier responses; works locally and live |
+| `e746199` | Postman: take IDs from earlier responses so it runs locally and live; docs |
 
 ## Interview lines
 

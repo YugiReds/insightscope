@@ -230,7 +230,7 @@ def test_the_real_database_is_not_touched_by_the_scratch_tests(empty_database):
     scratch, schema = empty_database
     main.initialize_database(scratch)
     with main.engine.connect() as conn:
-        assert conn.execute(text("SELECT COUNT(*) FROM recalls")).scalar() > 1000     # still the real data
+        assert conn.execute(text("SELECT COUNT(*) FROM recalls")).scalar() > 0     # still the loaded data (the scratch schema is empty); not a fixed size, so the CI seed works too
 
 
 def test_the_app_still_starts_and_answers_health_when_the_database_cannot_be_reached(monkeypatch):

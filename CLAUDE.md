@@ -26,6 +26,7 @@ data service over public drug data. Lean scope on purpose.
 - `insights.py` - step 6 AI summaries of the recall spikes (Hugging Face, with guardrail, template fallback and a Postgres cache table `insight_cache`). Called by `/insights/recalls/spikes`.
 - `analytics.py` - step 5 recall analytics (monthly counts, reason categories, spike detection). Plain SQL via `text()`, called by the `/analytics/recalls/*` endpoints in `main.py`.
 - `tests/test_api.py`, `tests/test_recalls_api.py`, `tests/test_analytics.py`, `tests/test_insights.py`, `tests/test_reports.py`, `tests/test_dashboard.py`, `tests/test_ingest_recalls.py`, `pytest.ini` - tests. `README.md` - public-facing overview with troubleshooting scenarios.
+- `.github/workflows/tests.yml` - step 9 CI (two parallel jobs: dashboard tests, Python tests against a throwaway Postgres 18). `tests/seed_ci_data.py` - made-up data for that database. `tests/test_ci_setup.py` - tests of the seed's safety check, its data and the workflow file. See "CI rules" below.
 - `checks.sql` / `run_checks.py` - integrity checks (orphans, duplicates) and a runner that prints PASS/WARN/FAIL.
 
 ## Data model
@@ -94,11 +95,20 @@ only the row with the latest `marketing_start_date` for each NDC, otherwise it w
 - `render.yaml` is the Blueprint (one free web service, virginia). Secrets (`DATABASE_URL`, `HF_TOKEN`) are `sync: false`. Keep `PYTHON_VERSION` equal to the local venv's 3.12.x. `.env.example` holds fake placeholders only.
 - LIVE and verified: https://insightscope.onrender.com (Render free web service + Neon free Postgres), deployed from `render.yaml`. The build uses `npm ci --include=dev`, and `NODE_VERSION` works on the Python service. Use Neon's DIRECT connection string (pooling off), not the pooled one. `HF_TOKEN` on Render is a separate fine-grained token with only "Make calls to Inference Providers". Free tier: the first visit after ~15 minutes idle takes up to a minute. A red "API unreachable" badge while data loads can be a browser extension (seen with SimplyCodes in Opera); check in a private window.
 
+## CI rules (step 9: GitHub Actions)
+- The seed script deletes every row of the product and recall tables. It must ONLY ever run against a database named exactly `insightscope_ci`: `ensure_ci_database` refuses anything else (clear error, exit 1), runs BEFORE `import db`, and never reads `.env`, so it cannot reach the real local database or Neon. Never weaken that check; its tests were proven to fail when it was disabled.
+- CI stays SECRET-FREE: no `secrets.` references, no Neon, no `HF_TOKEN`. The database is a `postgres:18` service container with a throwaway password written in the workflow (it is not a secret). The AI tests keep using the fake client and the autouse guard against real network calls.
+- The seed stays DETERMINISTIC: no random numbers, no `date.today()`, no data fetched from the network. Use real openFDA data only by hand (local `pytest`, Postman), never in the push gate: it changes weekly and can be rate limited. All names in the seed are invented ("Example Pharma Inc") and the file starts with a comment saying so.
+- The seed is shaped for the tests (repeated NDCs with different dates, a recall `N/A`, 2 spikes 13 months apart so the first is not in the second's baseline, a recall NDC with more than 10 recalls, weekly Wednesday reports from 2024-01-03). If a new test needs a case the real data has, add it to the seed and to `tests/test_ci_setup.py`, not a network call.
+- `python-version` and `node-version` in the workflow must equal `PYTHON_VERSION` and `NODE_VERSION` in `render.yaml` (a test checks it). Actions are pinned to the full commit SHA of a release at least 14 days old, with the version in a comment; to upgrade, look up the new tag's SHA and update the comment too (a test checks the pins are 40-character SHAs).
+- The Python job builds the dashboard before `pytest`, so the 4 mount tests run in CI instead of skipping. Run locally against the CI data: create an empty database `insightscope_ci`, set `$env:DATABASE_URL` for that command only, run `tests\seed_ci_data.py`, then `pytest` (270 tests pass, none skipped).
+- Not verified without a push: that the workflow runs on GitHub itself (the Postgres service starting, the cache steps, the run time). Check the first run's log.
+
 ## Commands
 - Dashboard dev: API in one terminal (`.\venv\Scripts\python.exe -m uvicorn main:app --reload`), then `cd frontend; npm install; npm run dev` and open http://localhost:5173.
 - Dashboard production (one server): `cd frontend; npm run build`, then start uvicorn and open http://127.0.0.1:8000/. Build BEFORE starting uvicorn, or restart it after the first build.
 - Dashboard tests: `cd frontend; npm test`.
-- Run the tests: `.\venv\Scripts\python.exe -m pytest` (239 tests in `tests/`, most run against the real database; 4 of them need `frontend/dist` and are skipped until `npm run build` has run).
+- Run the tests: `.\venv\Scripts\python.exe -m pytest` (270 tests in `tests/`, most run against the real database; 4 of them need `frontend/dist` and are skipped until `npm run build` has run).
 - Run the API: `.\venv\Scripts\python.exe -m uvicorn main:app --reload`, then open http://127.0.0.1:8000/docs.
 - Load data: `.\venv\Scripts\python.exe ingest.py` (drops and recreates the tables each run, so it is safe to re-run).
 - Load recalls: `.\venv\Scripts\python.exe ingest_recalls.py [number_of_records]` (default 10,000 newest by `report_date`; safe to re-run).

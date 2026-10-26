@@ -1,5 +1,7 @@
 # InsightScope
 
+[![Tests](https://github.com/YugiReds/insightscope/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/YugiReds/insightscope/actions/workflows/tests.yml)
+
 A small data service over the FDA's public drug directory (the openFDA NDC API). A script pulls ~5,000 drug
 records, cleans them with pandas, and loads them into PostgreSQL. A second script does the same for the ~10,000
 most recent FDA drug recalls (the openFDA enforcement API). A FastAPI service then lets clients look the data
@@ -303,6 +305,32 @@ An NDC is **not unique** in this data. openFDA keeps several label versions per 
 Counting rows would overcount drugs, so every NDC lookup and count uses only the version with the latest
 `marketing_start_date` (ties broken by `product_id`). The integrity checks report this as a WARN, not a failure,
 because it is expected behavior in the source data.
+
+## Continuous integration
+
+Every push and pull request to `main` runs the tests on GitHub (`.github/workflows/tests.yml`), in two jobs that run
+side by side:
+
+- **Dashboard tests:** `npm ci` and `npm test` (the Vitest tests in `frontend/`).
+- **Python tests:** starts a throwaway Postgres 18, builds the dashboard (so the tests that serve the real build run
+  instead of being skipped), loads made-up data, and runs `pytest`.
+
+**Why a seeded database and not the live openFDA data?** The tests compare the API with the database, so the database
+must be filled. Loading the real data on every push would be slow, openFDA could rate limit the shared GitHub servers,
+and the data changes every week, so a test could turn red with no code change. `tests/seed_ci_data.py` instead builds a
+small fixed data set of invented firms, drugs and recalls, shaped to contain the cases the tests look for (repeated
+NDCs, a recall numbered `N/A`, two spikes, a firm name with a comma, and so on). It uses no random numbers and no
+clock, so a red badge always means a real change broke something. The real data is still what you test by hand with
+`pytest` locally and with the Postman collection.
+
+**No secrets are used.** The workflow has read-only access to the repository. The database password in it is a
+throwaway value for a database that exists only while the job runs, `DATABASE_URL` points at it, and there is no Neon
+connection and no `HF_TOKEN`. The AI tests use a fake client and any real network call fails the test.
+
+**The seed script refuses to run on any other database.** It deletes every row first, so it stops unless the database
+name in `DATABASE_URL` is exactly `insightscope_ci`, and it never reads `.env`. To run the whole suite the same way
+locally, create an empty database called `insightscope_ci`, then in PowerShell set `$env:DATABASE_URL` to its address,
+run `.\venv\Scripts\python.exe tests\seed_ci_data.py` and `.\venv\Scripts\python.exe -m pytest`, and remove the variable.
 
 ## Running in production: Render + Neon
 
