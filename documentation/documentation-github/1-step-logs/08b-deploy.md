@@ -111,9 +111,18 @@ Close the terminal (trash-can icon) when done, so the Neon address is gone.
 
 Claude Code broke the code on purpose 14 times, and the tests caught every one. Examples on the Python side: dropping tables at startup, blocking startup while the database is asleep, and breaking `/health/db`. One break exposed a gap in its own new test, which it then fixed. On the dashboard side: breaking the database-check throttle and the reset after an outage.
 
+## Follow-up: Postman against the live site (October 25)
+
+The first live Postman run passed 73 of 75. "Get product by NDC (76961-101)" got a **404**: Neon was loaded later than the local database, from a different openFDA sample, so that NDC wasn't there. Running it locally also showed a 404 on `/health/db`, which turned out to be an old uvicorn process started before step 8b; restarting it fixed that.
+
+Claude Code changed the collection so requests read their IDs from earlier responses (product NDC, labeler word, recall number, a recall's NDC) instead of hard-coding them. The N/A recall now accepts our own 404 message but still fails on FastAPI's generic one. Details in the [Postman file guide](../2-file-guide/postman.md).
+
+**Result:** 78 of 78 tests passed, both locally and live.
+
+**Interview line:** "A test passed locally and failed in production because it hard-coded data. I changed it to take its test data from the API's own responses, so the same suite runs against any environment."
+
 ## Not checked
 
-- The new Postman "Database health check" request wasn't run in Postman.
 - Behaviour after Neon's monthly compute allowance runs out (not expected at this traffic).
 - What the site looks like in browsers other than Chrome, Opera and the phone.
 
@@ -123,7 +132,9 @@ Claude Code broke the code on purpose 14 times, and the tests caught every one. 
 | --- | --- |
 | `81e92a2` | step 8b part 1: deploy-ready (health routes, DB URL normalization, render.yaml) |
 | `371bacc` | step 8b part 2: README live demo link, dashboard screenshot, deploy docs |
-| *(pending)* | step 8b docs |
+| `e4a626b` | step 8b docs: deploy step log, file guides, troubleshooting |
+| `788d333` | README: production section reflects Render + Neon |
+| *(pending)* | Postman: IDs taken from earlier responses; works locally and live |
 
 ## Interview lines
 

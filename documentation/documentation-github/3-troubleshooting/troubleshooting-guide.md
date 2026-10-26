@@ -222,6 +222,18 @@ psql -U postgres -d insightscope -c "DELETE FROM insight_cache;"
 - **Why:** Postman is using an old imported copy.
 - **Fix:** delete the collection in Postman and import the JSON again.
 
+### A new endpoint returns 404 in Postman but the code has it (hit)
+- **Why:** the uvicorn running on your PC was started before the change and without `--reload` (or it's an old leftover process).
+- **Fix:** Ctrl+C in its terminal and start it again: `.\venv\Scripts\python.exe -m uvicorn main:app --reload`.
+
+### Postman passes locally but a lookup 404s against the live site (hit)
+- **Why:** the live database (Neon) was loaded from a different openFDA sample, so a hard-coded NDC or recall number may not exist there.
+- **Fix:** don't hard-code data IDs. The collection now saves them from earlier responses (`sampleNdc`, `sampleRecallNumber` and so on). If a lookup still fails, check that the list request ran first.
+
+### Postman still calls `127.0.0.1` after changing `baseUrl`
+- **Why:** the change wasn't saved, or an environment with its own `baseUrl` is selected.
+- **Fix:** set the **Current value** in the collection's **Variables** tab, press **Ctrl+S**, and check the top right says **No Environment**.
+
 ### Red 404 / 422 badges in Postman
 - **Not a problem** when the checks under them say PASS. Those requests test error cases on purpose.
 

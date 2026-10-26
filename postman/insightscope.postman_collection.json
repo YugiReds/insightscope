@@ -87,6 +87,23 @@
                   "",
                   "pm.test('total is a number', function () {",
                   "    pm.expect(pm.response.json().total).to.be.a('number');",
+                  "});",
+                  "",
+                  "// Remember the first product's NDC so 'Get product by NDC' works on any data load.",
+                  "pm.test('saved the first product_ndc as sampleNdc', function () {",
+                  "    var first = pm.response.json().items[0];",
+                  "    pm.expect(first.product_ndc).to.be.a('string').and.not.empty;",
+                  "    pm.collectionVariables.set('sampleNdc', first.product_ndc);",
+                  "});",
+                  "",
+                  "// Remember the first labeler on the page that has a word of 3+ letters/digits, for the labeler filter.",
+                  "pm.test('saved a labeler_name with a usable word as sampleLabeler', function () {",
+                  "    var usable = pm.response.json().items.filter(function (p) {",
+                  "        var runs = (p.labeler_name || '').toLowerCase().match(/[a-z0-9]+/g) || [];",
+                  "        return runs.some(function (w) { return w.length >= 3; });",
+                  "    });",
+                  "    pm.expect(usable, 'no labeler_name on this page has a word of 3 or more letters/digits').to.not.be.empty;",
+                  "    pm.collectionVariables.set('sampleLabeler', usable[0].labeler_name);",
                   "});"
                 ]
               }
@@ -143,8 +160,21 @@
           }
         },
         {
-          "name": "Filter products by labeler (pfizer)",
+          "name": "Filter products by labeler (longest word of a labeler from the list)",
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Longest run of letters and digits, lowercase: safe in a URL, and always a piece of the real name.",
+                  "var name = (pm.collectionVariables.get('sampleLabeler') || '').toLowerCase();",
+                  "var runs = name.match(/[a-z0-9]+/g) || [];",
+                  "var longest = runs.reduce(function (best, w) { return w.length > best.length ? w : best; }, '');",
+                  "pm.collectionVariables.set('sampleLabelerWord', longest);"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
@@ -154,11 +184,13 @@
                   "    pm.response.to.have.status(200);",
                   "});",
                   "",
-                  "pm.test('every item has pfizer in its labeler_name', function () {",
+                  "pm.test('every item has the filter text in its labeler_name (any capitals)', function () {",
+                  "    var word = pm.collectionVariables.get('sampleLabelerWord');",
+                  "    pm.expect(word, 'sampleLabelerWord must be at least 3 characters').to.have.lengthOf.at.least(3);",
                   "    var items = pm.response.json().items;",
                   "    pm.expect(items).to.not.be.empty;",
                   "    items.forEach(function (item) {",
-                  "        pm.expect(item.labeler_name.toLowerCase()).to.include('pfizer');",
+                  "        pm.expect(item.labeler_name.toLowerCase()).to.include(word);",
                   "    });",
                   "});"
                 ]
@@ -169,18 +201,18 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/products?labeler=pfizer&limit=5",
+              "raw": "{{baseUrl}}/products?labeler={{sampleLabelerWord}}&limit=5",
               "host": ["{{baseUrl}}"],
               "path": ["products"],
               "query": [
-                { "key": "labeler", "value": "pfizer" },
+                { "key": "labeler", "value": "{{sampleLabelerWord}}" },
                 { "key": "limit", "value": "5" }
               ]
             }
           }
         },
         {
-          "name": "Get product by NDC (76961-101)",
+          "name": "Get product by NDC (from the list)",
           "event": [
             {
               "listen": "test",
@@ -195,6 +227,10 @@
                   "    var body = pm.response.json();",
                   "    pm.expect(body.active_ingredients).to.be.an('array');",
                   "    pm.expect(body.packages).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test('returns the NDC that was asked for', function () {",
+                  "    pm.expect(pm.response.json().product_ndc).to.eql(pm.collectionVariables.get('sampleNdc'));",
                   "});"
                 ]
               }
@@ -204,9 +240,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/products/76961-101",
+              "raw": "{{baseUrl}}/products/{{sampleNdc}}",
               "host": ["{{baseUrl}}"],
-              "path": ["products", "76961-101"]
+              "path": ["products", "{{sampleNdc}}"]
             }
           }
         },
@@ -297,6 +333,13 @@
                   "    var body = pm.response.json();",
                   "    pm.expect(body.items).to.have.lengthOf(5);",
                   "    pm.expect(body.total).to.be.a('number');",
+                  "});",
+                  "",
+                  "// Remember the newest recall's number so 'Get recall by number' works on any data load.",
+                  "pm.test('saved the first recall_number as sampleRecallNumber', function () {",
+                  "    var first = pm.response.json().items[0];",
+                  "    pm.expect(first.recall_number).to.be.a('string').and.not.empty;",
+                  "    pm.collectionVariables.set('sampleRecallNumber', first.recall_number);",
                   "});"
                 ]
               }
@@ -353,7 +396,7 @@
           }
         },
         {
-          "name": "Get recall by number (D-0006-2027)",
+          "name": "Get recall by number (from the list)",
           "event": [
             {
               "listen": "test",
@@ -366,7 +409,7 @@
                   "",
                   "pm.test('has the right recall_number and a product_ndcs list', function () {",
                   "    var body = pm.response.json();",
-                  "    pm.expect(body.recall_number).to.eql('D-0006-2027');",
+                  "    pm.expect(body.recall_number).to.eql(pm.collectionVariables.get('sampleRecallNumber'));",
                   "    pm.expect(body.product_ndcs).to.be.an('array');",
                   "});"
                 ]
@@ -377,28 +420,31 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/recalls/D-0006-2027",
+              "raw": "{{baseUrl}}/recalls/{{sampleRecallNumber}}",
               "host": ["{{baseUrl}}"],
-              "path": ["recalls", "D-0006-2027"]
+              "path": ["recalls", "{{sampleRecallNumber}}"]
             }
           }
         },
         {
-          "name": "Get recall numbered N/A (slash in the number)",
+          "name": "Recall N/A reaches our code (200, or our own 404; never the generic Not Found)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status code is 200', function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
-                  "pm.test('recall_number is N/A and product_ndcs is a list', function () {",
+                  "// The slash in 'N/A' must not stop the route. Either the recall is loaded (200) or our own",
+                  "// 'No recall found' message comes back (404). FastAPI's generic 'Not Found' means the routing bug.",
+                  "pm.test('200 with recall_number N/A, or 404 with our own message', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
                   "    var body = pm.response.json();",
-                  "    pm.expect(body.recall_number).to.eql('N/A');",
-                  "    pm.expect(body.product_ndcs).to.be.an('array');",
+                  "    if (pm.response.code === 200) {",
+                  "        pm.expect(body.recall_number).to.eql('N/A');",
+                  "        pm.expect(body.product_ndcs).to.be.an('array');",
+                  "    } else {",
+                  "        pm.expect(body.detail).to.eql('No recall found with recall number N/A');",
+                  "    }",
                   "});"
                 ]
               }
@@ -415,8 +461,36 @@
           }
         },
         {
-          "name": "Recalls for an NDC (16729-455)",
+          "name": "Recalls for an NDC (found in the recalls)",
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Only about 1 in 4 recalls lists any NDC, and the list does not show them, so look through the",
+                  "// newest recalls one by one until one has an NDC. Saved as sampleRecallNdc.",
+                  "pm.collectionVariables.unset('sampleRecallNdc');",
+                  "var base = pm.collectionVariables.get('baseUrl');",
+                  "pm.sendRequest(base + '/recalls?limit=40', function (err, res) {",
+                  "    if (err || res.code !== 200) { return; }",
+                  "    var numbers = res.json().items.map(function (r) { return r.recall_number; });",
+                  "    function next(i) {",
+                  "        if (i >= numbers.length) { return; }",
+                  "        pm.sendRequest(base + '/recalls/' + encodeURI(numbers[i]), function (e, r) {",
+                  "            var ndcs = (!e && r.code === 200) ? r.json().product_ndcs : [];",
+                  "            if (ndcs.length > 0) {",
+                  "                pm.collectionVariables.set('sampleRecallNdc', ndcs[0]);",
+                  "            } else {",
+                  "                next(i + 1);",
+                  "            }",
+                  "        });",
+                  "    }",
+                  "    next(0);",
+                  "});"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
@@ -426,11 +500,11 @@
                   "    pm.response.to.have.status(200);",
                   "});",
                   "",
-                  "pm.test('product_ndc matches and there are recalls', function () {",
+                  "pm.test('product_ndc matches and there is at least one recall', function () {",
                   "    var body = pm.response.json();",
-                  "    pm.expect(body.product_ndc).to.eql('16729-455');",
-                  "    pm.expect(body.total).to.be.at.least(5);",
-                  "    pm.expect(body.items).to.have.lengthOf(5);",
+                  "    pm.expect(body.product_ndc).to.eql(pm.collectionVariables.get('sampleRecallNdc'));",
+                  "    pm.expect(body.total).to.be.at.least(1);",
+                  "    pm.expect(body.items).to.have.lengthOf(Math.min(body.total, 5));",
                   "});"
                 ]
               }
@@ -440,9 +514,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/products/16729-455/recalls?limit=5",
+              "raw": "{{baseUrl}}/products/{{sampleRecallNdc}}/recalls?limit=5",
               "host": ["{{baseUrl}}"],
-              "path": ["products", "16729-455", "recalls"],
+              "path": ["products", "{{sampleRecallNdc}}", "recalls"],
               "query": [
                 { "key": "limit", "value": "5" }
               ]

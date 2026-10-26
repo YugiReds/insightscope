@@ -288,8 +288,13 @@ To run it:
   `.to.be.an('array')` (is a list) or `.to.have.lengthOf(5)` (has exactly 5 entries).
 - The "sorted" check loops through the rows and confirms each count is no larger than the one before it.
 
-The tests that check the data (NDC `76961-101`, the `TABLET` filter, the recalls `D-0006-2027` and `N/A`, and NDC
-`16729-455`) assume the data from `ingest.py` and `ingest_recalls.py` is loaded.
+Requests take their IDs from earlier responses (the product and recall lookups use an NDC and a recall number saved
+from the list requests), so the collection works against any data load, local or live.
+
+The labeler filter uses the longest word (at least 3 characters) of a labeler saved from the product list, and the `N/A` recall request accepts
+either the recall or our own "No recall found" 404 (it fails only on the generic `Not Found`). The remaining data
+checks (the `TABLET` filter and the 2025 date ranges) still assume the data from `ingest.py` and `ingest_recalls.py`
+is loaded.
 
 ## A data quirk worth knowing
 
