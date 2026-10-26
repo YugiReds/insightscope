@@ -210,6 +210,23 @@ psql -U postgres -d insightscope -c "DELETE FROM insight_cache;"
 
 ## 7. Tests and Postman
 
+### The GitHub Actions run is red (the badge says "failing")
+- **Where:** repo → **Actions** → the run → the red job → the red step. Read the last lines of its log.
+- **Common causes:** a test really broke (run `.\venv\Scripts\python.exe -m pytest` or `npm test` locally); the versions in the workflow and `render.yaml` drifted apart (a `test_ci_setup.py` test names them); `requirements.txt` or `package-lock.json` is out of date.
+- **Not your code?** If only the "Set up job" or "Initialize containers" step failed, GitHub had a hiccup. Click **Re-run all jobs**.
+
+### CI shows "269 passed, 1 skipped" (hit)
+- **Why:** the `.env` fallback test in `test_deploy_ready.py` skips in CI, because CI has no `.env` (and never should). It runs on your PC.
+- **Fix:** nothing. That's the expected result.
+
+### "Refusing to run: the database name in DATABASE_URL must be exactly 'insightscope_ci'"
+- **Why:** `tests/seed_ci_data.py` deletes rows before inserting, so it only runs against the throwaway CI database. This is the guard working.
+- **Fix:** point `DATABASE_URL` at a database named `insightscope_ci`. Never rename your real database to get around it.
+
+### Notice: "The ubuntu-latest label will migrate to Ubuntu 26"
+- **Why:** GitHub is upgrading its machines. It's a notice, not an error.
+- **Fix:** nothing needed. To control the timing, change `runs-on: ubuntu-latest` to `runs-on: ubuntu-24.04` in the workflow.
+
 ### Tests fail with a database error
 - **Why:** PostgreSQL isn't running, or the data isn't loaded. Most tests run against the real database.
 - **Fix:** sections 2 and 3, then `.\venv\Scripts\python.exe -m pytest` again.

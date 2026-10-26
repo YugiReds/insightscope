@@ -1,6 +1,6 @@
 # `tests/`: automated tests
 
-**Job:** code that calls your API and checks the answers are correct. 239 Python tests, plus 73 dashboard tests in `frontend/`.
+**Job:** code that calls your API and checks the answers are correct. 270 Python tests, plus 73 dashboard tests in `frontend/`. GitHub Actions runs all of them on every push (see [config-files.md](config-files.md)).
 
 **Run them all:**
 
@@ -8,7 +8,7 @@
 .\venv\Scripts\python.exe -m pytest
 ```
 
-Add `-q` for shorter output. You want to see something like `239 passed` once the dashboard is built. Before `npm run build`, 4 dashboard tests show as skipped.
+Add `-q` for shorter output. You want to see something like `270 passed` once the dashboard is built. In CI it says `269 passed, 1 skipped`: the `.env` fallback test skips there because CI has no `.env`. Before `npm run build`, 4 dashboard tests show as skipped.
 
 Dashboard tests (inside `frontend`): `npm test`. See [frontend.md](frontend.md).
 
@@ -23,6 +23,7 @@ Dashboard tests (inside `frontend`): `npm test`. See [frontend.md](frontend.md).
 | `tests/test_dashboard.py` | 10 | FastAPI serves the built dashboard; API routes and `/docs` still win; unknown paths stay 404; why the mount must be last. Four of them skip until `npm run build` |
 | `tests/test_reports.py` | 49 | Both CSVs: headers, row counts vs. the database, filters, 422s, download header, CSV-injection guard, byte order mark, no AI calls when cached |
 | `tests/test_deploy_ready.py` | about 35 | Step 8b: address normalization (all three prefixes, query parameters kept, password never in the error), engine settings, `/health` never touching the database, `/health/db` 503, startup table creation and retries, `.env` not overriding the shell, `render.yaml` build command |
+| `tests/test_ci_setup.py` | 31 | Step 9: the seed's safety guard, the shape of the made-up data, and the workflow file (versions match `render.yaml`, no secrets, actions pinned to commit SHAs) |
 | `tests/test_insights.py` | 50 | AI summaries with a fake client: good text, invented numbers, "products"/"items", timeouts, missing token, cache and prompt versions, no token leaks |
 
 ## Key patterns
@@ -99,3 +100,18 @@ A test that can never fail is useless. Each round, Claude Code broke the code on
 | Dashboard: database-check throttle and outage-recovery reset broken | all caught |
 
 The insights tests never call the real AI: a safety net fails any test that tries to reach the network. The analytics tests use made-up data in a temporary table that's rolled back, so real data is never touched.
+
+## `tests/seed_ci_data.py`: the CI database's made-up data
+
+GitHub's machine starts with an empty Postgres, so this script creates the tables and fills them: 18 products, 412 recalls, 141 recall–NDC links. Every name is invented ("Example Pharma Inc"), and there's no randomness or "today", so every run gives the same rows.
+
+```python
+CI_DATABASE_NAME = "insightscope_ci"
+...
+    if name != CI_DATABASE_NAME:
+        raise SeedRefused("Refusing to run: the database name in DATABASE_URL must be exactly 'insightscope_ci' ...")
+```
+
+**The guard:** the script deletes every product and recall row before inserting, so it refuses any database not named exactly `insightscope_ci`, and it never reads `.env`. Its error messages never show the address, because the address holds the password.
+
+**Why made-up data and not real openFDA data:** real data changes every week and the download can be rate limited, so a test could go red with no code change. Fixed data means red always means "the code broke". The data is shaped to contain what the tests look for: repeated NDCs, weekly Wednesday reports, two spikes, the `N/A` recall, cells starting with `+` or `=`, and a firm name with a comma.

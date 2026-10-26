@@ -79,6 +79,34 @@ Never put a real password or token in it.
 
 **Careful:** the purple banner in Render says changes to this file are applied automatically. Changing `plan: free` to a paid plan here would cost money.
 
+## `.github/workflows/tests.yml`: the CI workflow
+
+**Job:** tells GitHub Actions to run every test on each push and pull request to `main`. Results: the repo's **Actions** tab and the badge on the README.
+
+| Part | Meaning |
+| --- | --- |
+| `on: push / pull_request, branches: [main]` | When it runs |
+| `permissions: contents: read` | It can read the repo but not change it (least privilege) |
+| `concurrency: ... cancel-in-progress: true` | A newer push cancels the older unfinished run |
+| `frontend` job ("Dashboard tests") | `npm ci --include=dev`, then `npm test` |
+| `backend` job ("Python tests") | Starts a `postgres:18` container, installs Python 3.12.10 and the packages, builds the dashboard, runs `tests/seed_ci_data.py`, then `pytest` |
+| `timeout-minutes: 10` | A stuck job is stopped |
+
+```yaml
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+```
+
+Each action is pinned to a full **commit SHA** with the version in a comment. A tag like `v7` can be moved to different code; a SHA can't.
+
+```yaml
+    env:
+      DATABASE_URL: postgresql://postgres:ci-throwaway-password@localhost:5432/insightscope_ci
+```
+
+This password is in the file **on purpose**: that database exists only for the few minutes of the job. The workflow uses **no secrets** (no Neon address, no `HF_TOKEN`).
+
+The Python, Node and Postgres versions match production (`render.yaml` and Neon); a test in `tests/test_ci_setup.py` fails if they drift apart.
+
 ## `.gitignore`: what Git never saves
 
 **Job:** a list of files and folders Git pretends don't exist.
@@ -147,11 +175,12 @@ Key rules in it:
 - Keep recalls in their own table list so `ingest.py` can't wipe them.
 - Keep the dashboard mount last in `main.py`, and use `import pathlib`, not `from pathlib import Path`.
 - `/health` must never touch the database; the live site is on Render + Neon with the direct (not pooled) connection string.
+- CI rules: the seed only ever writes to `insightscope_ci`, CI stays secret-free, and the seed stays deterministic.
 
 **Why it matters:** without it, each Claude Code session would start with no memory of the project's decisions.
 
 ## `README.md`: the repo's front page
 
-**Job:** the first thing a recruiter sees on GitHub. It starts with the **live demo link** and a dashboard screenshot (`screenshots/dashboard.png`), then covers what the project does, how the pieces fit, setup steps, every endpoint, how the analytics work, the duplicate-NDC quirk, troubleshooting scenarios and the N/A bug story.
+**Job:** the first thing a recruiter sees on GitHub. It starts with the **Tests badge**, the **live demo link** and a dashboard screenshot (`screenshots/dashboard.png`), then covers what the project does, how the pieces fit, setup steps, every endpoint, how the analytics work, the duplicate-NDC quirk, troubleshooting scenarios and the N/A bug story.
 
 **Why it matters:** it's your project's pitch, and its troubleshooting section reads like a support knowledge-base article.

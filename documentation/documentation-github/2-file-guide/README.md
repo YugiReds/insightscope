@@ -39,6 +39,8 @@ Clients: the dashboard (frontend/, served by main.py at /), your browser (/docs)
 | `reports.py` | CSV downloads of recalls and spikes, safe for Excel | [reports.md](reports.md) |
 | `checks.sql` / `run_checks.py` | Data quality checks | [checks.md](checks.md) |
 | `tests/` | Automated tests | [tests.md](tests.md) |
+| `tests/seed_ci_data.py` | Made-up data for the CI database (refuses any database except `insightscope_ci`) | [tests.md](tests.md) |
+| `.github/workflows/tests.yml` | The GitHub Actions workflow that runs every test on each push | [config-files.md](config-files.md) |
 | `postman/insightscope.postman_collection.json` | The Postman collection | [postman.md](postman.md) |
 | `frontend/` | The React dashboard | [frontend.md](frontend.md) |
 | `frontend/.npmrc`, `package.json` | npm packages and install settings | [frontend.md](frontend.md) |

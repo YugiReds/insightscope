@@ -22,6 +22,7 @@ This folder explains the whole project in plain language: what was built, step b
 | [7. Dashboard](1-step-logs/07-dashboard.md) | React page with charts, spike summaries, NDC lookup and a live status light | Done |
 | [8a. Reports](1-step-logs/08a-reports.md) | CSV downloads and a printable PDF report | Done |
 | [8b. Deploy](1-step-logs/08b-deploy.md) | Live at https://insightscope.onrender.com (Render + Neon PostgreSQL) | Done |
+| [9. CI](1-step-logs/09-ci.md) | Every push runs all tests on GitHub Actions; "Tests passing" badge | Done |
 
 Setup is step 0 so the numbers match the ones used in `CLAUDE.md`, the README and the Claude Code prompts.
 
